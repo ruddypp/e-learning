@@ -32,7 +32,7 @@ $query_quizzes = "SELECT t.*, m.judul as materi_judul, p.nama as guru_nama,
                 FROM tugas t
                 JOIN materi_coding m ON t.materi_id = m.id
                 JOIN pengguna p ON t.dibuat_oleh = p.id
-                WHERE t.kelas_id = '$class_id'";
+                WHERE t.kelas_id = '$class_id' AND t.status = 'published'";
 
 // Apply material filter
 if (!empty($filter_materi)) {
@@ -188,6 +188,10 @@ include_once '../../includes/header.php';
                                 <?php if ($quiz['tanggal_deadline'] && strtotime($quiz['tanggal_deadline']) < time()): ?>
                                     <button class="btn btn-secondary w-100" disabled>
                                         <i class="fas fa-clock me-2"></i> Lewat Deadline
+                                    </button>
+                                <?php elseif ($quiz['status'] === 'closed'): ?>
+                                    <button class="btn btn-secondary w-100" disabled>
+                                        <i class="fas fa-lock me-2"></i> Quiz Ditutup
                                     </button>
                                 <?php else: ?>
                                     <a href="quiz.php?id=<?php echo $quiz['id']; ?>" class="btn btn-primary w-100">

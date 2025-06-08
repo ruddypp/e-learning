@@ -42,8 +42,33 @@ function generateUniqueId($prefix = '') {
 function generateID($prefix = '', $table = '', $field = 'id') {
     global $conn;
     
+    // Define max length based on table
+    $max_length = 20; // Default max length
+    
+    // Table-specific length limitations
+    if ($table === 'kelas' || $prefix === 'CLS') {
+        $max_length = 10; // kelas.id is VARCHAR(10)
+    }
+    
+    // Calculate remaining length after the prefix
+    $remainingLength = $max_length - strlen($prefix);
+    
+    // If prefix is too long, truncate it
+    if ($remainingLength <= 2) {
+        $prefix = substr($prefix, 0, 2);
+        $remainingLength = $max_length - 2;
+    }
+    
     // Generate a new ID
-    $new_id = $prefix . substr(uniqid(), -8) . substr(md5(rand()), 0, 4);
+    $uniquePart = substr(uniqid(), -($remainingLength > 8 ? 8 : $remainingLength));
+    $randomPart = '';
+    
+    // If we still have space, add some random characters
+    if ($remainingLength > 8) {
+        $randomPart = substr(md5(rand()), 0, $remainingLength - 8);
+    }
+    
+    $new_id = $prefix . $uniquePart . $randomPart;
     
     // If table and field are provided, check for uniqueness
     if (!empty($table) && !empty($field)) {
@@ -57,7 +82,12 @@ function generateID($prefix = '', $table = '', $field = 'id') {
                 $is_unique = true;
             } else {
                 // Generate a new ID if the current one already exists
-                $new_id = $prefix . substr(uniqid(), -8) . substr(md5(rand()), 0, 4);
+                $uniquePart = substr(uniqid(), -($remainingLength > 8 ? 8 : $remainingLength));
+                $randomPart = '';
+                if ($remainingLength > 8) {
+                    $randomPart = substr(md5(rand()), 0, $remainingLength - 8);
+                }
+                $new_id = $prefix . $uniquePart . $randomPart;
             }
         }
     }

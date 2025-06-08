@@ -68,6 +68,17 @@ $student_averages = [];
 $quiz_data = [];
 
 if ($filter_applied && !empty($students) && !empty($quizzes)) {
+    // Inisialisasi quiz_data untuk semua quiz
+    foreach ($quizzes as $quiz_id => $quiz) {
+        $quiz_data[$quiz_id] = [
+            'label' => limitText($quiz['judul'], 30),
+            'scores' => [],
+            'average' => 0,
+            'total' => 0,
+            'count' => 0
+        ];
+    }
+    
     // Get all grades at once
     $query_grades = "SELECT nt.*, t.judul as quiz_judul
                     FROM nilai_tugas nt
@@ -100,15 +111,6 @@ if ($filter_applied && !empty($students) && !empty($quizzes)) {
         
         // Collect quiz data for chart
         if ($grade['nilai'] !== null) {
-            if (!isset($quiz_data[$quiz_id])) {
-                $quiz_data[$quiz_id] = [
-                    'label' => limitText($quizzes[$quiz_id]['judul'], 30),
-                    'scores' => [],
-                    'average' => 0,
-                    'total' => 0,
-                    'count' => 0
-                ];
-            }
             $quiz_data[$quiz_id]['scores'][] = $grade['nilai'];
             $quiz_data[$quiz_id]['total'] += $grade['nilai'];
             $quiz_data[$quiz_id]['count']++;
@@ -119,8 +121,11 @@ if ($filter_applied && !empty($students) && !empty($quizzes)) {
     foreach ($quiz_data as $quiz_id => &$data) {
         if ($data['count'] > 0) {
             $data['average'] = round($data['total'] / $data['count'], 1);
+        } else {
+            $data['average'] = 0; // Pastikan kunci 'average' selalu ada
         }
     }
+    unset($data); // Hapus referensi terakhir
 }
 
 // Include header
@@ -304,7 +309,7 @@ include_once '../../includes/header.php';
                                     <?php foreach ($quizzes as $quiz_id => $quiz): ?>
                                         <th class="text-center">
                                             <?php if (isset($quiz_data[$quiz_id]) && $quiz_data[$quiz_id]['count'] > 0): ?>
-                                                <?php echo $quiz_data[$quiz_id]['average']; ?>
+                                                <?php echo isset($quiz_data[$quiz_id]['average']) ? $quiz_data[$quiz_id]['average'] : '-'; ?>
                                             <?php else: ?>
                                                 -
                                             <?php endif; ?>

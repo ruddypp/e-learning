@@ -10,37 +10,37 @@ checkAccess(['admin']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'add' || $_POST['action'] === 'edit') {
-            $id = isset($_POST['id']) ? sanitizeInput($_POST['id']) : generateUniqueId('CLS');
+            $id = isset($_POST['id']) ? sanitizeInput($_POST['id']) : generateID('CLS', 'kelas');
             $nama = sanitizeInput($_POST['nama']);
             $tahun_ajaran = sanitizeInput($_POST['tahun_ajaran']);
             $wali_kelas_id = !empty($_POST['wali_kelas_id']) ? sanitizeInput($_POST['wali_kelas_id']) : null;
             
             try {
-                if ($_POST['action'] === 'add') {
+            if ($_POST['action'] === 'add') {
                     $query = "INSERT INTO kelas (id, nama, tahun_ajaran, wali_kelas_id) VALUES (?, ?, ?, ?)";
                     $stmt = mysqli_prepare($conn, $query);
                     mysqli_stmt_bind_param($stmt, "ssss", $id, $nama, $tahun_ajaran, $wali_kelas_id);
-                    
+                
                     if (mysqli_stmt_execute($stmt)) {
-                        setFlashMessage('success', 'Kelas berhasil ditambahkan.');
-                        
-                        // Log activity with shorter activity type
-                        logActivity($_SESSION['user_id'], 'add_class', "Admin menambahkan kelas baru: $nama");
-                    } else {
-                        setFlashMessage('error', 'Gagal menambahkan kelas: ' . mysqli_error($conn));
-                    }
-                } else { // Edit action
+                    setFlashMessage('success', 'Kelas berhasil ditambahkan.');
+                    
+                    // Log activity with shorter activity type
+                        logActivity($_SESSION['user_id'], 'tambah_materi', "Admin menambahkan kelas baru: $nama");
+                } else {
+                    setFlashMessage('error', 'Gagal menambahkan kelas: ' . mysqli_error($conn));
+                }
+            } else { // Edit action
                     $query = "UPDATE kelas SET nama = ?, tahun_ajaran = ?, wali_kelas_id = ? WHERE id = ?";
                     $stmt = mysqli_prepare($conn, $query);
                     mysqli_stmt_bind_param($stmt, "ssss", $nama, $tahun_ajaran, $wali_kelas_id, $id);
-                    
+                
                     if (mysqli_stmt_execute($stmt)) {
-                        setFlashMessage('success', 'Kelas berhasil diperbarui.');
-                        
-                        // Log activity with shorter activity type
-                        logActivity($_SESSION['user_id'], 'edit_class', "Admin mengedit kelas: $nama");
-                    } else {
-                        setFlashMessage('error', 'Gagal memperbarui kelas: ' . mysqli_error($conn));
+                    setFlashMessage('success', 'Kelas berhasil diperbarui.');
+                    
+                    // Log activity with shorter activity type
+                        logActivity($_SESSION['user_id'], 'edit_materi', "Admin mengedit kelas: $nama");
+                } else {
+                    setFlashMessage('error', 'Gagal memperbarui kelas: ' . mysqli_error($conn));
                     }
                 }
             } catch (Exception $e) {
@@ -54,26 +54,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = sanitizeInput($_POST['id']);
             
             try {
-                // Check if the class exists
+            // Check if the class exists
                 $check_query = "SELECT nama FROM kelas WHERE id = ?";
                 $stmt = mysqli_prepare($conn, $check_query);
                 mysqli_stmt_bind_param($stmt, "s", $id);
                 mysqli_stmt_execute($stmt);
                 $check_result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($check_result) > 0) {
+                $class = mysqli_fetch_assoc($check_result);
                 
-                if (mysqli_num_rows($check_result) > 0) {
-                    $class = mysqli_fetch_assoc($check_result);
-                    
-                    // Check if there are students in this class
+                // Check if there are students in this class
                     $check_students = "SELECT COUNT(*) as count FROM pengguna WHERE kelas_id = ?";
                     $stmt = mysqli_prepare($conn, $check_students);
                     mysqli_stmt_bind_param($stmt, "s", $id);
                     mysqli_stmt_execute($stmt);
                     $students_result = mysqli_stmt_get_result($stmt);
-                    $students_count = mysqli_fetch_assoc($students_result)['count'];
-                    
-                    if ($students_count > 0) {
-                        setFlashMessage('error', 'Kelas tidak dapat dihapus karena masih memiliki siswa. Pindahkan semua siswa terlebih dahulu.');
+                $students_count = mysqli_fetch_assoc($students_result)['count'];
+                
+                if ($students_count > 0) {
+                    setFlashMessage('error', 'Kelas tidak dapat dihapus karena masih memiliki siswa. Pindahkan semua siswa terlebih dahulu.');
                     } else {
                         // Check if there are materials for this class
                         $check_materials = "SELECT COUNT(*) as count FROM materi_coding WHERE kelas_id = ?";
@@ -85,24 +85,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         if ($materials_count > 0) {
                             setFlashMessage('error', 'Kelas tidak dapat dihapus karena masih memiliki materi. Hapus semua materi terlebih dahulu.');
-                        } else {
-                            // Delete class
+                } else {
+                    // Delete class
                             $query = "DELETE FROM kelas WHERE id = ?";
                             $stmt = mysqli_prepare($conn, $query);
                             mysqli_stmt_bind_param($stmt, "s", $id);
-                            
+                    
                             if (mysqli_stmt_execute($stmt)) {
-                                setFlashMessage('success', 'Kelas berhasil dihapus.');
-                                
-                                // Log activity with shorter activity type
-                                logActivity($_SESSION['user_id'], 'del_class', "Admin menghapus kelas: {$class['nama']}");
-                            } else {
-                                setFlashMessage('error', 'Gagal menghapus kelas. Mungkin kelas masih terkait dengan data lain.');
+                        setFlashMessage('success', 'Kelas berhasil dihapus.');
+                        
+                        // Log activity with shorter activity type
+                                logActivity($_SESSION['user_id'], 'hapus_materi', "Admin menghapus kelas: {$class['nama']}");
+                    } else {
+                        setFlashMessage('error', 'Gagal menghapus kelas. Mungkin kelas masih terkait dengan data lain.');
                             }
-                        }
                     }
-                } else {
-                    setFlashMessage('error', 'Kelas tidak ditemukan.');
+                }
+            } else {
+                setFlashMessage('error', 'Kelas tidak ditemukan.');
                 }
             } catch (Exception $e) {
                 setFlashMessage('error', 'Terjadi kesalahan: ' . $e->getMessage());

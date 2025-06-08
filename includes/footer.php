@@ -3,7 +3,7 @@
 
     <footer class="footer bg-white py-3 mt-auto border-top">
         <div class="container text-center">
-            <span class="text-muted">&copy; <?php echo date('Y'); ?> MENTARI - E-Learning Coding. All rights reserved.</span>
+            <span class="text-muted">&copy; <?php echo date('Y'); ?> Portaldik - E-Learning Coding. All rights reserved.</span>
         </div>
     </footer>
 
@@ -13,7 +13,7 @@
         
         <footer class="footer bg-white py-3 mt-auto border-top">
             <div class="container text-center">
-                <span class="text-muted">&copy; <?php echo date('Y'); ?> MENTARI - E-Learning Coding. All rights reserved.</span>
+                <span class="text-muted">&copy; <?php echo date('Y'); ?> Portaldik - E-Learning Coding. All rights reserved.</span>
             </div>
         </footer>
     <?php endif; ?>

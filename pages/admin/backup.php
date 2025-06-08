@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'create_backup') {
         $timestamp = date('Y-m-d_H-i-s');
         $backupFile = "$backupDir/elearning_backup_$timestamp.sql";
+        $deskripsi = isset($_POST['deskripsi']) ? sanitizeInput($_POST['deskripsi']) : "Backup database $timestamp";
         
         // Get database configuration
         $host = DB_HOST;
@@ -63,23 +64,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exec($command, $output, $return_var);
             
             if ($return_var === 0 && file_exists($backupFile) && filesize($backupFile) > 0) {
-                // Log the action
-                logActivity($_SESSION['user_id'], 'backup', "Admin membuat backup database: $backupFile");
+                // Get file size
+                $fileSize = filesize($backupFile);
                 
-                // Add to system log
-                $ip = $_SERVER['REMOTE_ADDR'];
-                $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
-                             VALUES ('{$_SESSION['user_id']}', 'Backup Database', 'Membuat backup: $backupFile', '$ip', '$user_agent')";
-                mysqli_query($conn, $log_query);
+                // Generate backup ID
+                $backupId = generateUniqueId('BKP');
                 
-                setFlashMessage('success', 'Backup database berhasil dibuat.');
+                // Record backup in database
+                $query = "INSERT INTO backup_data (id, nama_file, ukuran_file, dibuat_oleh, deskripsi, status) 
+                          VALUES ('$backupId', 'elearning_backup_$timestamp.sql', $fileSize, '{$_SESSION['user_id']}', '$deskripsi', 'success')";
+                
+                if (mysqli_query($conn, $query)) {
+                    // Log the action
+                    logActivity($_SESSION['user_id'], 'create_backup', "Admin membuat backup database: elearning_backup_$timestamp.sql", $backupId);
+                    
+                    // Add to system log
+                    $ip = $_SERVER['REMOTE_ADDR'];
+                    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                    $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                 VALUES ('{$_SESSION['user_id']}', 'Backup Database', 'Membuat backup: elearning_backup_$timestamp.sql', '$ip', '$user_agent')";
+                    mysqli_query($conn, $log_query);
+                    
+                    setFlashMessage('success', 'Backup database berhasil dibuat dan dicatat.');
+                } else {
+                    setFlashMessage('warning', 'Backup database berhasil dibuat tetapi gagal dicatat: ' . mysqli_error($conn));
+                }
             } else {
                 // Get error details for better troubleshooting
                 $errorMsg = implode("\n", $output);
                 if (empty($errorMsg)) {
                     $errorMsg = "Kode error: $return_var";
                 }
+                
+                // Record failed backup attempt
+                $backupId = generateUniqueId('BKP');
+                $query = "INSERT INTO backup_data (id, nama_file, ukuran_file, dibuat_oleh, deskripsi, status) 
+                          VALUES ('$backupId', 'elearning_backup_$timestamp.sql', 0, '{$_SESSION['user_id']}', 'Backup gagal: $errorMsg', 'failed')";
+                mysqli_query($conn, $query);
                 
                 setFlashMessage('error', 'Gagal membuat backup database. ' . $errorMsg);
             }
@@ -138,8 +159,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exec($command, $output, $return_var);
                 
                 if ($return_var === 0) {
+                    // Find backup record
+                    $query = "SELECT id FROM backup_data WHERE nama_file = '$backupFile'";
+                    $result = mysqli_query($conn, $query);
+                    $backupId = null;
+                    
+                    if (mysqli_num_rows($result) > 0) {
+                        $row = mysqli_fetch_assoc($result);
+                        $backupId = $row['id'];
+                    }
+                    
                     // Log the action
-                    logActivity($_SESSION['user_id'], 'restore', "Admin melakukan restore database dari: $backupFile");
+                    logActivity($_SESSION['user_id'], 'create_backup', "Admin melakukan restore database dari: $backupFile", $backupId);
                     
                     // Add to system log
                     $ip = $_SERVER['REMOTE_ADDR'];
@@ -173,8 +204,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (file_exists($fullPath)) {
             if (unlink($fullPath)) {
-                // Log the action
-                logActivity($_SESSION['user_id'], 'delete_backup', "Admin menghapus file backup: $backupFile");
+                // Find and update backup record
+                $query = "SELECT id FROM backup_data WHERE nama_file = '$backupFile'";
+                $result = mysqli_query($conn, $query);
+                
+                if (mysqli_num_rows($result) > 0) {
+                    $row = mysqli_fetch_assoc($result);
+                    $backupId = $row['id'];
+                    
+                    // Update status in database
+                    $update_query = "UPDATE backup_data SET status = 'deleted' WHERE id = '$backupId'";
+                    mysqli_query($conn, $update_query);
+                    
+                    // Log the action
+                    logActivity($_SESSION['user_id'], 'create_backup', "Admin menghapus file backup: $backupFile", $backupId);
+                }
                 
                 // Add to system log
                 $ip = $_SERVER['REMOTE_ADDR'];
@@ -197,17 +241,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Get list of backup files
+// Get list of backup files from database
+$query_backups = "SELECT b.*, p.nama as admin_name 
+                 FROM backup_data b
+                 JOIN pengguna p ON b.dibuat_oleh = p.id
+                 WHERE b.status != 'deleted'
+                 ORDER BY b.tanggal_dibuat DESC";
+$result_backups = mysqli_query($conn, $query_backups);
+$backups_from_db = [];
+
+if ($result_backups) {
+    while ($row = mysqli_fetch_assoc($result_backups)) {
+        $backups_from_db[$row['nama_file']] = $row;
+    }
+}
+
+// Get list of backup files from filesystem
 $backupFiles = [];
 if (is_dir($backupDir)) {
     $files = scandir($backupDir);
     foreach ($files as $file) {
         if ($file != '.' && $file != '..' && pathinfo($file, PATHINFO_EXTENSION) === 'sql') {
-            $backupFiles[] = [
+            $fileInfo = [
                 'name' => $file,
                 'size' => formatBytes(filesize("$backupDir/$file")),
                 'date' => date("Y-m-d H:i:s", filemtime("$backupDir/$file"))
             ];
+            
+            // Add database info if available
+            if (isset($backups_from_db[$file])) {
+                $fileInfo['description'] = $backups_from_db[$file]['deskripsi'];
+                $fileInfo['admin_name'] = $backups_from_db[$file]['admin_name'];
+                $fileInfo['status'] = $backups_from_db[$file]['status'];
+                $fileInfo['backup_id'] = $backups_from_db[$file]['id'];
+            }
+            
+            $backupFiles[] = $fileInfo;
         }
     }
     
@@ -247,6 +316,10 @@ include_once '../../includes/header.php';
                     
                     <form method="POST" action="backup.php" class="mb-4">
                         <input type="hidden" name="action" value="create_backup">
+                        <div class="mb-3">
+                            <label for="deskripsi" class="form-label">Deskripsi (opsional)</label>
+                            <textarea class="form-control" id="deskripsi" name="deskripsi" rows="3" placeholder="Tambahkan deskripsi untuk backup ini"></textarea>
+                        </div>
                         <button type="submit" class="btn btn-success w-100" onclick="return confirm('Apakah Anda yakin ingin membuat backup database saat ini?');">
                             <i class="fas fa-download me-2"></i> Buat Backup Baru
                         </button>
@@ -255,123 +328,188 @@ include_once '../../includes/header.php';
                     <hr>
                     
                     <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i> <strong>Perhatian!</strong> 
-                        Restore database akan menimpa seluruh data saat ini. Pastikan untuk membuat backup terlebih dahulu.
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Perhatian:</strong> Restore database akan menimpa semua data saat ini dengan data dari backup yang dipilih.
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Database Stats -->
+        <!-- Backup History -->
         <div class="col-md-8 mb-4">
-            <div class="card h-100">
+            <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> Statistik Database</h5>
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i> Riwayat Backup</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row g-4">
-                        <?php
-                        // Get table stats
-                        $tables = [
-                            'pengguna' => ['icon' => 'fas fa-users', 'color' => 'primary'],
-                            'kelas' => ['icon' => 'fas fa-school', 'color' => 'success'],
-                            'materi_coding' => ['icon' => 'fas fa-book', 'color' => 'info'],
-                            'tugas' => ['icon' => 'fas fa-tasks', 'color' => 'warning'],
-                            'soal_quiz' => ['icon' => 'fas fa-question-circle', 'color' => 'danger'],
-                            'nilai_tugas' => ['icon' => 'fas fa-star', 'color' => 'secondary'],
-                            'kuesioner' => ['icon' => 'fas fa-clipboard-list', 'color' => 'dark'],
-                            'log_sistem' => ['icon' => 'fas fa-history', 'color' => 'light']
-                        ];
-                        
-                        foreach ($tables as $table => $info) {
-                            $query = "SELECT COUNT(*) as total FROM $table";
-                            $result = mysqli_query($conn, $query);
-                            $row = mysqli_fetch_assoc($result);
-                            $count = $row['total'];
-                            
-                            echo '<div class="col-md-3 col-sm-6">';
-                            echo '<div class="card bg-light">';
-                            echo '<div class="card-body text-center p-3">';
-                            echo '<div class="mb-2"><i class="' . $info['icon'] . ' fa-2x text-' . $info['color'] . '"></i></div>';
-                            echo '<h6 class="card-title">' . ucfirst(str_replace('_', ' ', $table)) . '</h6>';
-                            echo '<h3 class="mb-0">' . number_format($count) . '</h3>';
-                            echo '</div>';
-                            echo '</div>';
-                            echo '</div>';
-                        }
-                        ?>
-                    </div>
+                    <?php if (count($backupFiles) > 0): ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nama File</th>
+                                        <th>Deskripsi</th>
+                                        <th>Ukuran</th>
+                                        <th>Tanggal</th>
+                                        <th>Dibuat Oleh</th>
+                                        <th>Status</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($backupFiles as $file): ?>
+                                        <tr>
+                                            <td><?php echo $file['name']; ?></td>
+                                            <td>
+                                                <?php 
+                                                if (isset($file['description'])) {
+                                                    echo $file['description'];
+                                                } else {
+                                                    echo "<em>Tidak ada deskripsi</em>";
+                                                }
+                                                ?>
+                                            </td>
+                                            <td><?php echo $file['size']; ?></td>
+                                            <td><?php echo formatDate($file['date'], true); ?></td>
+                                            <td>
+                                                <?php 
+                                                if (isset($file['admin_name'])) {
+                                                    echo $file['admin_name'];
+                                                } else {
+                                                    echo "<em>Unknown</em>";
+                                                }
+                                                ?>
+                                            </td>
+                                            <td>
+                                                <?php 
+                                                if (isset($file['status'])) {
+                                                    echo '<span class="badge bg-' . ($file['status'] == 'success' ? 'success' : 'danger') . '">' . 
+                                                          ucfirst($file['status']) . '</span>';
+                                                } else {
+                                                    echo '<span class="badge bg-secondary">Untracked</span>';
+                                                }
+                                                ?>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="download_backup.php?file=<?php echo $file['name']; ?>" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                    
+                                                    <button type="button" class="btn btn-sm btn-warning" 
+                                                            data-bs-toggle="modal" data-bs-target="#restoreModal"
+                                                            data-file="<?php echo $file['name']; ?>">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                    
+                                                    <button type="button" class="btn btn-sm btn-danger" 
+                                                            data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                                            data-file="<?php echo $file['name']; ?>">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Belum ada file backup yang tersedia.
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Backup Files -->
-    <div class="card mt-4">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="fas fa-history me-2"></i> Riwayat Backup</h5>
-        </div>
-        <div class="card-body">
-            <?php if (count($backupFiles) > 0): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Nama File</th>
-                                <th>Ukuran</th>
-                                <th>Tanggal Dibuat</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($backupFiles as $file): ?>
-                                <tr>
-                                    <td><?php echo $file['name']; ?></td>
-                                    <td><?php echo $file['size']; ?></td>
-                                    <td><?php echo formatDate($file['date'], true); ?></td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <form method="POST" action="backup.php" class="d-inline">
-                                                <input type="hidden" name="action" value="restore_backup">
-                                                <input type="hidden" name="file" value="<?php echo $file['name']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-warning" 
-                                                        onclick="return confirm('PERINGATAN: Tindakan ini akan menimpa seluruh data saat ini dengan data dari backup ini. Lanjutkan?');">
-                                                    <i class="fas fa-redo-alt"></i>
-                                                </button>
-                                            </form>
-                                            
-                                            <a href="<?php echo "../../backups/" . $file['name']; ?>" download class="btn btn-sm btn-info">
-                                                <i class="fas fa-download"></i>
-                                            </a>
-                                            
-                                            <form method="POST" action="backup.php" class="d-inline">
-                                                <input type="hidden" name="action" value="delete_backup">
-                                                <input type="hidden" name="file" value="<?php echo $file['name']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-danger" 
-                                                        onclick="return confirm('Apakah Anda yakin ingin menghapus file backup ini?');">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+</div>
+
+<!-- Restore Confirmation Modal -->
+<div class="modal fade" id="restoreModal" tabindex="-1" aria-labelledby="restoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="restoreModalLabel">Konfirmasi Restore Database</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Peringatan:</strong> Proses ini akan mengganti seluruh data saat ini dengan data dari file backup yang dipilih.
                 </div>
-            <?php else: ?>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i> Belum ada file backup yang tersedia.
-                </div>
-            <?php endif; ?>
+                <p>Apakah Anda yakin ingin melakukan restore database dari file: <strong id="restoreFileName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="backup.php">
+                    <input type="hidden" name="action" value="restore_backup">
+                    <input type="hidden" name="file" id="restoreFileInput">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning">Ya, Restore Database</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">Konfirmasi Hapus Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Apakah Anda yakin ingin menghapus file backup: <strong id="deleteFileName"></strong>?</p>
+                <p class="text-danger">Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="backup.php">
+                    <input type="hidden" name="action" value="delete_backup">
+                    <input type="hidden" name="file" id="deleteFileInput">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">Ya, Hapus Backup</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Set file name in restore modal
+document.querySelectorAll('[data-bs-target="#restoreModal"]').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const file = this.getAttribute('data-file');
+        document.getElementById('restoreFileName').textContent = file;
+        document.getElementById('restoreFileInput').value = file;
+    });
+});
+
+// Set file name in delete modal
+document.querySelectorAll('[data-bs-target="#deleteModal"]').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const file = this.getAttribute('data-file');
+        document.getElementById('deleteFileName').textContent = file;
+        document.getElementById('deleteFileInput').value = file;
+    });
+});
+</script>
+
 <?php
-// Helper function for formatting file size
+// Include footer
+include_once '../../includes/footer.php';
+
+/**
+ * Format bytes to human readable format
+ * 
+ * @param int $bytes Number of bytes
+ * @param int $precision Precision of the result
+ * @return string Formatted size
+ */
 function formatBytes($bytes, $precision = 2) {
-    $units = array('B', 'KB', 'MB', 'GB', 'TB');
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     
     $bytes = max($bytes, 0);
     $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
@@ -381,7 +519,4 @@ function formatBytes($bytes, $precision = 2) {
     
     return round($bytes, $precision) . ' ' . $units[$pow];
 }
-
-// Include footer
-include_once '../../includes/footer.php';
 ?> 

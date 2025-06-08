@@ -236,7 +236,7 @@ include_once '../../includes/header.php';
                     <?php endif; ?>
                     
                     <div class="text-center mt-3">
-                        <a href="activity.php" class="btn btn-info btn-sm">
+                        <a href="activities.php" class="btn btn-info btn-sm">
                             <i class="fas fa-list me-1"></i> Lihat Semua Aktivitas
                         </a>
                     </div>

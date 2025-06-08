@@ -11,11 +11,11 @@ if (!isset($_GET['id'])) {
     setFlashMessage('error', 'ID Materi tidak ditemukan.');
     
     // Redirect based on user role
-    if ($_SESSION['user_type'] === 'siswa') {
+    if ($_SESSION['user_role'] === 'siswa') {
         header('Location: ../siswa/materials.php');
-    } else if ($_SESSION['user_type'] === 'guru') {
+    } else if ($_SESSION['user_role'] === 'guru') {
         header('Location: materials.php');
-    } else if ($_SESSION['user_type'] === 'kepsek') {
+    } else if ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/materials.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -37,11 +37,11 @@ if (mysqli_num_rows($result_material) === 0) {
     setFlashMessage('error', 'Materi tidak ditemukan.');
     
     // Redirect based on user role
-    if ($_SESSION['user_type'] === 'siswa') {
+    if ($_SESSION['user_role'] === 'siswa') {
         header('Location: ../siswa/materials.php');
-    } else if ($_SESSION['user_type'] === 'guru') {
+    } else if ($_SESSION['user_role'] === 'guru') {
         header('Location: materials.php');
-    } else if ($_SESSION['user_type'] === 'kepsek') {
+    } else if ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/materials.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -52,7 +52,7 @@ if (mysqli_num_rows($result_material) === 0) {
 $material = mysqli_fetch_assoc($result_material);
 
 // Check permissions for students (can only view materials for their class)
-if ($_SESSION['user_type'] === 'siswa') {
+if ($_SESSION['user_role'] === 'siswa') {
     $student_query = "SELECT kelas_id FROM pengguna WHERE id = '{$_SESSION['user_id']}'";
     $student_result = mysqli_query($conn, $student_query);
     $student = mysqli_fetch_assoc($student_result);
@@ -65,7 +65,7 @@ if ($_SESSION['user_type'] === 'siswa') {
 }
 
 // Log view activity for students
-if ($_SESSION['user_type'] === 'siswa') {
+if ($_SESSION['user_role'] === 'siswa') {
     logActivity($_SESSION['user_id'], 'view_materi', "Siswa melihat materi: {$material['judul']}");
 }
 
@@ -82,15 +82,15 @@ include_once '../../includes/header.php';
 
 <div class="container-fluid py-4">
     <div class="mb-4">
-        <?php if ($_SESSION['user_type'] === 'siswa'): ?>
+        <?php if ($_SESSION['user_role'] === 'siswa'): ?>
             <a href="../siswa/materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
-        <?php elseif ($_SESSION['user_type'] === 'guru'): ?>
+        <?php elseif ($_SESSION['user_role'] === 'guru'): ?>
             <a href="materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
-        <?php elseif ($_SESSION['user_type'] === 'kepsek'): ?>
+        <?php elseif ($_SESSION['user_role'] === 'kepsek'): ?>
             <a href="../kepsek/materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
@@ -118,7 +118,7 @@ include_once '../../includes/header.php';
                                 <span class="badge bg-info me-2"><?php echo $material['kelas_nama']; ?></span>
                                 <span class="text-muted">Dibuat: <?php echo formatDate($material['tanggal_dibuat']); ?></span>
                             </div>
-                            <?php if ($_SESSION['user_type'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
+                            <?php if ($_SESSION['user_role'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
                                 <a href="materials.php?action=edit&id=<?php echo $material['id']; ?>" class="btn btn-sm btn-info">
                                     <i class="fas fa-edit me-1"></i> Edit Materi
                                 </a>
@@ -147,7 +147,7 @@ include_once '../../includes/header.php';
                     <?php if (mysqli_num_rows($result_quizzes) > 0): ?>
                         <div class="list-group">
                             <?php while ($quiz = mysqli_fetch_assoc($result_quizzes)): ?>
-                                <a href="<?php echo ($_SESSION['user_type'] === 'siswa') ? '../siswa/quiz.php?id=' . $quiz['id'] : 'quiz_detail.php?id=' . $quiz['id']; ?>" 
+                                <a href="<?php echo ($_SESSION['user_role'] === 'siswa') ? '../siswa/quiz.php?id=' . $quiz['id'] : 'quiz_detail.php?id=' . $quiz['id']; ?>" 
                                    class="list-group-item list-group-item-action">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h6 class="mb-1"><?php echo $quiz['judul']; ?></h6>
@@ -163,7 +163,7 @@ include_once '../../includes/header.php';
                     <?php else: ?>
                         <p class="text-center text-muted">Belum ada quiz untuk materi ini.</p>
                         
-                        <?php if ($_SESSION['user_type'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
+                        <?php if ($_SESSION['user_role'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
                             <div class="d-grid gap-2">
                                 <a href="quizzes.php?add=true&materi_id=<?php echo $material['id']; ?>" class="btn btn-primary">
                                     <i class="fas fa-plus-circle me-2"></i> Buat Quiz
@@ -197,7 +197,7 @@ include_once '../../includes/header.php';
                     <p><strong>Jumlah Siswa:</strong> <?php echo $student_count; ?> siswa</p>
                     <p><strong>Jumlah Materi:</strong> <?php echo $material_count; ?> materi</p>
                     
-                    <?php if ($_SESSION['user_type'] === 'guru'): ?>
+                    <?php if ($_SESSION['user_role'] === 'guru'): ?>
                         <a href="class_overview.php?id=<?php echo $material['kelas_id']; ?>" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye me-1"></i> Lihat Kelas
                         </a>

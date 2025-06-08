@@ -51,10 +51,21 @@ if ($quiz['kelas_id'] !== $student['kelas_id']) {
     exit;
 }
 
+// Check if quiz is published
+if ($quiz['status'] !== 'published') {
+    if ($quiz['status'] === 'draft') {
+        setFlashMessage('error', 'Quiz ini masih dalam tahap persiapan dan belum dipublikasikan.');
+    } else {
+        setFlashMessage('error', 'Quiz ini telah ditutup dan tidak tersedia untuk dikerjakan.');
+    }
+    header('Location: quizzes.php');
+    exit;
+}
+
 // Check if deadline has passed
 if ($quiz['tanggal_deadline'] && strtotime($quiz['tanggal_deadline']) < time()) {
     setFlashMessage('error', 'Batas waktu pengumpulan quiz ini telah berakhir.');
-    header('Location: dashboard.php');
+    header('Location: quizzes.php');
     exit;
 }
 
@@ -67,6 +78,17 @@ $attempt = mysqli_fetch_assoc($result_attempt);
 
 // Process quiz submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'submit_quiz') {
+    // Check again if quiz is still published to prevent submitting to closed quizzes
+    $status_check = "SELECT status FROM tugas WHERE id = '$quiz_id'";
+    $status_result = mysqli_query($conn, $status_check);
+    $current_status = mysqli_fetch_assoc($status_result)['status'];
+    
+    if ($current_status !== 'published') {
+        setFlashMessage('error', 'Quiz ini tidak lagi tersedia untuk dikerjakan.');
+        header('Location: quizzes.php');
+        exit;
+    }
+    
     // Begin transaction
     $conn->begin_transaction();
     
@@ -123,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $conn->commit();
         
         // Log activity
-        logActivity($student_id, 'submit_tugas', "Siswa mengumpulkan jawaban quiz: {$quiz['judul']}");
+        logActivity($student_id, 'submit_tugas', "Siswa mengumpulkan jawaban quiz: {$quiz['judul']}", $quiz_id);
         
         setFlashMessage('success', 'Jawaban quiz berhasil disimpan.');
         header('Location: quiz_result.php?id=' . $quiz_id);
@@ -200,8 +222,8 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
 
 <div class="container-fluid py-4">
     <div class="mb-4">
-        <a href="dashboard.php" class="btn btn-sm btn-outline-secondary mb-2">
-            <i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard
+        <a href="quizzes.php" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Quiz
         </a>
         <h1 class="h3"><?php echo $quiz['judul']; ?></h1>
         <p>
@@ -248,90 +270,110 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
                     <div class="col-md-4">
                         <div class="d-flex align-items-center mb-2">
                             <div class="me-2">
-                                <i class="fas fa-tasks text-primary"></i>
+                                <i class="fas fa-question-circle fa-2x text-primary"></i>
                             </div>
                             <div>
-                                <strong>Jumlah Soal:</strong> <?php echo count($questions); ?> soal
+                                <h6 class="mb-0">Jumlah Soal</h6>
+                                <p class="mb-0"><?php echo count($questions); ?> soal</p>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="d-flex align-items-center mb-2">
                             <div class="me-2">
-                                <i class="fas fa-weight-hanging text-warning"></i>
+                                <i class="fas fa-star fa-2x text-warning"></i>
                             </div>
                             <div>
-                                <strong>Total Bobot:</strong> <?php echo $total_bobot; ?> poin
+                                <h6 class="mb-0">Total Bobot</h6>
+                                <p class="mb-0"><?php echo $total_bobot; ?> poin</p>
                             </div>
                         </div>
                     </div>
                     <?php if ($quiz['tanggal_deadline']): ?>
-                        <div class="col-md-4">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="me-2">
-                                    <i class="fas fa-clock text-danger"></i>
-                                </div>
-                                <div>
-                                    <strong>Deadline:</strong> <?php echo formatDate($quiz['tanggal_deadline']); ?>
-                                </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="me-2">
+                                <i class="fas fa-clock fa-2x text-danger"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Batas Waktu</h6>
+                                <p class="mb-0"><?php echo formatDate($quiz['tanggal_deadline']); ?></p>
                             </div>
                         </div>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
         
         <!-- Quiz Form -->
-        <form method="POST" action="quiz.php?id=<?php echo $quiz_id; ?>" id="quizForm">
+        <form method="POST" action="" id="quizForm">
             <input type="hidden" name="action" value="submit_quiz">
             
-            <?php $question_number = 1; ?>
-            <?php foreach ($questions as $question): ?>
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Soal <?php echo $question_number++; ?></h5>
-                            <span class="badge bg-warning">Bobot: <?php echo $question['bobot']; ?></span>
-                        </div>
+            <?php foreach ($questions as $index => $question): ?>
+                <div class="card mb-4 question-card" id="question-<?php echo $index + 1; ?>">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Soal <?php echo $index + 1; ?> <small class="text-muted">(<?php echo $question['bobot']; ?> poin)</small></h5>
+                        <span class="badge bg-secondary"><?php echo $question['jenis'] === 'pilihan_ganda' ? 'Pilihan Ganda' : ($question['jenis'] === 'essay' ? 'Esai' : 'Coding'); ?></span>
                     </div>
                     <div class="card-body">
-                        <div class="question-content mb-4">
+                        <div class="mb-4">
                             <?php echo $question['pertanyaan']; ?>
                         </div>
                         
                         <?php if ($question['jenis'] === 'pilihan_ganda'): ?>
                             <?php
-                            $options_query = "SELECT * FROM pilihan_jawaban WHERE soal_id = '{$question['id']}'";
-                            $options_result = mysqli_query($conn, $options_query);
+                            // Get options for multiple choice
+                            $query_options = "SELECT * FROM pilihan_jawaban WHERE soal_id = '{$question['id']}'";
+                            $result_options = mysqli_query($conn, $query_options);
+                            $options = [];
+                            
+                            while ($option = mysqli_fetch_assoc($result_options)) {
+                                $options[] = $option;
+                            }
+                            
+                            // Shuffle options
+                            shuffle($options);
+                            
+                            // Get previous selection if any
+                            $selected = isset($previous_answers[$question['id']]) ? $previous_answers[$question['id']]['pilihan_id'] : null;
                             ?>
-                            <div class="options-list">
-                                <?php while ($option = mysqli_fetch_assoc($options_result)): ?>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" 
-                                               name="answer_<?php echo $question['id']; ?>" 
-                                               id="option_<?php echo $option['id']; ?>" 
-                                               value="<?php echo $option['id']; ?>"
-                                               <?php echo (isset($previous_answers[$question['id']]) && $previous_answers[$question['id']]['pilihan_id'] === $option['id']) ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="option_<?php echo $option['id']; ?>">
-                                            <?php echo $option['teks']; ?>
-                                        </label>
-                                    </div>
-                                <?php endwhile; ?>
+                            
+                            <div class="list-group">
+                                <?php foreach ($options as $option): ?>
+                                    <label class="list-group-item list-group-item-action">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3">
+                                                <input type="radio" name="answer_<?php echo $question['id']; ?>" 
+                                                      value="<?php echo $option['id']; ?>" class="form-check-input"
+                                                      <?php echo ($selected === $option['id']) ? 'checked' : ''; ?>>
+                                            </div>
+                                            <div>
+                                                <?php echo $option['teks']; ?>
+                                            </div>
+                                        </div>
+                                    </label>
+                                <?php endforeach; ?>
                             </div>
                         <?php elseif ($question['jenis'] === 'essay'): ?>
+                            <?php
+                            // Get previous answer if any
+                            $previous_answer = isset($previous_answers[$question['id']]) ? $previous_answers[$question['id']]['jawaban'] : '';
+                            ?>
+                            
                             <div class="mb-3">
-                                <textarea class="form-control" 
-                                          name="answer_<?php echo $question['id']; ?>" 
-                                          rows="5"><?php echo isset($previous_answers[$question['id']]) ? $previous_answers[$question['id']]['jawaban'] : ''; ?></textarea>
+                                <textarea class="form-control" name="answer_<?php echo $question['id']; ?>" 
+                                         rows="5" placeholder="Ketik jawaban Anda di sini..."><?php echo $previous_answer; ?></textarea>
                             </div>
-                        <?php elseif ($question['jenis'] === 'coding'): ?>
+                        <?php else: ?>
+                            <?php
+                            // Get previous answer if any
+                            $previous_answer = isset($previous_answers[$question['id']]) ? $previous_answers[$question['id']]['jawaban'] : '';
+                            ?>
+                            
                             <div class="mb-3">
-                                <textarea class="form-control code-editor" 
-                                          name="answer_<?php echo $question['id']; ?>" 
-                                          rows="10"><?php echo isset($previous_answers[$question['id']]) ? $previous_answers[$question['id']]['jawaban'] : ''; ?></textarea>
-                                <small class="form-text text-muted">
-                                    Tulis kode program Anda di sini. Gunakan indentasi yang benar.
-                                </small>
+                                <textarea class="form-control code-editor" name="answer_<?php echo $question['id']; ?>" 
+                                         rows="10" placeholder="Tulis kode Anda di sini..."><?php echo $previous_answer; ?></textarea>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -339,76 +381,29 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
             <?php endforeach; ?>
             
             <div class="d-grid gap-2 col-md-6 mx-auto mb-4">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="fas fa-paper-plane me-2"></i> Kirim Jawaban
-                </button>
-                <button type="button" class="btn btn-outline-secondary" onclick="window.location.href='dashboard.php'">
-                    Batal
-                </button>
+                <?php if (!$has_attempted || !$attempt['nilai']): ?>
+                    <button type="submit" class="btn btn-primary btn-lg" onclick="return confirm('Apakah Anda yakin ingin mengirimkan jawaban? Pastikan semua jawaban telah terisi.')">
+                        <i class="fas fa-paper-plane me-2"></i> Kirim Jawaban
+                    </button>
+                <?php else: ?>
+                    <a href="quiz_result.php?id=<?php echo $quiz_id; ?>" class="btn btn-info btn-lg">
+                        <i class="fas fa-eye me-2"></i> Lihat Hasil Quiz
+                    </a>
+                <?php endif; ?>
             </div>
         </form>
     <?php endif; ?>
 </div>
 
-<style>
-    .question-content {
-        line-height: 1.6;
-    }
-    
-    .question-content img {
-        max-width: 100%;
-        height: auto;
-    }
-    
-    .question-content pre {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 5px;
-        overflow-x: auto;
-    }
-    
-    .question-content code {
-        background-color: #f1f1f1;
-        padding: 2px 4px;
-        border-radius: 4px;
-    }
-    
-    .code-editor {
-        font-family: monospace;
-        tab-size: 4;
-    }
-</style>
-
 <script>
-    // Prevent accidental leaving page
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('quizForm');
-        
-        window.addEventListener('beforeunload', function(e) {
-            // If form has been changed
-            if (isFormChanged()) {
-                e.preventDefault();
-                e.returnValue = 'Anda memiliki jawaban yang belum disimpan. Yakin ingin meninggalkan halaman?';
-            }
-        });
-        
-        form.addEventListener('submit', function() {
-            window.removeEventListener('beforeunload');
-        });
-        
-        function isFormChanged() {
-            const radios = document.querySelectorAll('input[type="radio"]:checked');
-            const textareas = document.querySelectorAll('textarea');
-            
-            if (radios.length > 0) return true;
-            
-            for (let i = 0; i < textareas.length; i++) {
-                if (textareas[i].value.trim() !== '') return true;
-            }
-            
-            return false;
-        }
-    });
+// Add handling for code editor if needed
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize code editors
+    const codeEditors = document.querySelectorAll('.code-editor');
+    if (codeEditors.length > 0) {
+        // If you want to use a code editor library, initialize it here
+    }
+});
 </script>
 
 <?php

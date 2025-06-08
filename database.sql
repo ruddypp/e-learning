@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS tugas (
     deskripsi TEXT NOT NULL,
     tanggal_dibuat DATE NOT NULL,
     tanggal_deadline DATE NULL,
+    status ENUM('draft', 'published', 'closed') DEFAULT 'draft',
     FOREIGN KEY (materi_id) REFERENCES materi_coding(id),
     FOREIGN KEY (kelas_id) REFERENCES kelas(id),
     FOREIGN KEY (dibuat_oleh) REFERENCES pengguna(id)
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS jawaban_siswa (
 CREATE TABLE IF NOT EXISTS laporan_aktivitas (
     id VARCHAR(20) PRIMARY KEY,
     pengguna_id VARCHAR(20) NOT NULL,
-    tipe_aktivitas ENUM('login', 'logout', 'view_materi', 'submit_tugas', 'nilai_tugas', 'tambah_materi', 'edit_materi', 'hapus_materi', 'verifikasi') NOT NULL,
+    tipe_aktivitas ENUM('login', 'logout', 'view_materi', 'submit_tugas', 'nilai_tugas', 'tambah_materi', 'edit_materi', 'hapus_materi', 'verifikasi', 'create_backup', 'isi_kuesioner', 'publish_quiz', 'close_quiz', 'view_grade') NOT NULL,
     deskripsi TEXT NULL,
     waktu TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     referensi_id VARCHAR(20) NULL,
@@ -132,6 +133,7 @@ CREATE TABLE IF NOT EXISTS kuesioner (
     kelas_id VARCHAR(10) NOT NULL,
     dibuat_oleh VARCHAR(20) NOT NULL,
     tanggal_dibuat DATE NOT NULL,
+    status ENUM('draft', 'published', 'closed') DEFAULT 'published',
     FOREIGN KEY (kelas_id) REFERENCES kelas(id),
     FOREIGN KEY (dibuat_oleh) REFERENCES pengguna(id)
 );
@@ -166,6 +168,18 @@ CREATE TABLE IF NOT EXISTS log_sistem (
     user_agent TEXT NULL,
     waktu TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (pengguna_id) REFERENCES pengguna(id)
+);
+
+-- Table: backup_data (Backup Records)
+CREATE TABLE IF NOT EXISTS backup_data (
+    id VARCHAR(20) PRIMARY KEY,
+    nama_file VARCHAR(255) NOT NULL,
+    ukuran_file INT NOT NULL,
+    dibuat_oleh VARCHAR(20) NOT NULL,
+    tanggal_dibuat TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deskripsi TEXT NULL,
+    status ENUM('success', 'failed') DEFAULT 'success',
+    FOREIGN KEY (dibuat_oleh) REFERENCES pengguna(id)
 );
 
 -- Insert default admin account

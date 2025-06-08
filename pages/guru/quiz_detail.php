@@ -10,9 +10,9 @@ checkAccess(['guru', 'kepsek', 'admin']);
 if (!isset($_GET['id'])) {
     setFlashMessage('error', 'ID Quiz tidak ditemukan.');
     
-    if ($_SESSION['user_type'] === 'guru') {
+    if ($_SESSION['user_role'] === 'guru') {
         header('Location: quizzes.php');
-    } else if ($_SESSION['user_type'] === 'kepsek') {
+    } else if ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/dashboard.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -34,9 +34,9 @@ $result_quiz = mysqli_query($conn, $query_quiz);
 if (mysqli_num_rows($result_quiz) === 0) {
     setFlashMessage('error', 'Quiz tidak ditemukan.');
     
-    if ($_SESSION['user_type'] === 'guru') {
+    if ($_SESSION['user_role'] === 'guru') {
         header('Location: quizzes.php');
-    } else if ($_SESSION['user_type'] === 'kepsek') {
+    } else if ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/dashboard.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -47,7 +47,7 @@ if (mysqli_num_rows($result_quiz) === 0) {
 $quiz = mysqli_fetch_assoc($result_quiz);
 
 // For teacher role, verify the quiz belongs to this teacher
-if ($_SESSION['user_type'] === 'guru' && $quiz['dibuat_oleh'] !== $_SESSION['user_id']) {
+if ($_SESSION['user_role'] === 'guru' && $quiz['dibuat_oleh'] !== $_SESSION['user_id']) {
     setFlashMessage('error', 'Anda tidak memiliki akses untuk melihat quiz ini.');
     header('Location: quizzes.php');
     exit;
@@ -55,7 +55,7 @@ if ($_SESSION['user_type'] === 'guru' && $quiz['dibuat_oleh'] !== $_SESSION['use
 
 // Process form submission for grading
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] === 'grade_quiz' && $_SESSION['user_type'] === 'guru') {
+    if (isset($_POST['action']) && $_POST['action'] === 'grade_quiz' && $_SESSION['user_role'] === 'guru') {
         $nilai_tugas_id = sanitizeInput($_POST['nilai_tugas_id']);
         $nilai = (int)sanitizeInput($_POST['nilai']);
         $feedback = sanitizeInput($_POST['feedback'], false);
@@ -181,11 +181,11 @@ include_once '../../includes/header.php';
 
 <div class="container-fluid py-4">
     <div class="mb-4">
-        <?php if ($_SESSION['user_type'] === 'guru'): ?>
+        <?php if ($_SESSION['user_role'] === 'guru'): ?>
             <a href="quizzes.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Quiz
             </a>
-        <?php elseif ($_SESSION['user_type'] === 'kepsek'): ?>
+        <?php elseif ($_SESSION['user_role'] === 'kepsek'): ?>
             <a href="../kepsek/dashboard.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard
             </a>
@@ -199,7 +199,7 @@ include_once '../../includes/header.php';
         <p>
             <span class="badge bg-info me-2"><?php echo $quiz['kelas_nama']; ?></span>
             <span class="badge bg-secondary me-2">Materi: <?php echo $quiz['materi_judul']; ?></span>
-            <?php if ($_SESSION['user_type'] !== 'guru'): ?>
+            <?php if ($_SESSION['user_role'] !== 'guru'): ?>
                 <span class="badge bg-success me-2">Guru: <?php echo $quiz['guru_nama']; ?></span>
             <?php endif; ?>
             <?php if ($quiz['tanggal_deadline']): ?>
@@ -404,7 +404,7 @@ include_once '../../includes/header.php';
                             </div>
                         </div>
                         
-                        <?php if ($_SESSION['user_type'] === 'guru'): ?>
+                        <?php if ($_SESSION['user_role'] === 'guru'): ?>
                             <!-- Grading Form -->
                             <form method="POST" action="quiz_detail.php?id=<?php echo $quiz_id; ?>&student_id=<?php echo $selected_attempt['siswa_id']; ?>">
                                 <input type="hidden" name="action" value="grade_quiz">

@@ -10,11 +10,11 @@ checkAccess(['siswa', 'guru', 'kepsek', 'admin']);
 if (!isset($_GET['id'])) {
     setFlashMessage('error', 'ID Materi tidak ditemukan.');
     
-    if ($_SESSION['user_type'] === 'siswa') {
+    if ($_SESSION['user_role'] === 'siswa') {
         header('Location: materials.php');
-    } elseif ($_SESSION['user_type'] === 'guru') {
+    } elseif ($_SESSION['user_role'] === 'guru') {
         header('Location: ../guru/materials.php');
-    } elseif ($_SESSION['user_type'] === 'kepsek') {
+    } elseif ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/materials.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -35,11 +35,11 @@ $result_material = mysqli_query($conn, $query_material);
 if (mysqli_num_rows($result_material) === 0) {
     setFlashMessage('error', 'Materi tidak ditemukan.');
     
-    if ($_SESSION['user_type'] === 'siswa') {
+    if ($_SESSION['user_role'] === 'siswa') {
         header('Location: materials.php');
-    } elseif ($_SESSION['user_type'] === 'guru') {
+    } elseif ($_SESSION['user_role'] === 'guru') {
         header('Location: ../guru/materials.php');
-    } elseif ($_SESSION['user_type'] === 'kepsek') {
+    } elseif ($_SESSION['user_role'] === 'kepsek') {
         header('Location: ../kepsek/materials.php');
     } else {
         header('Location: ../admin/dashboard.php');
@@ -50,7 +50,7 @@ if (mysqli_num_rows($result_material) === 0) {
 $material = mysqli_fetch_assoc($result_material);
 
 // Check if student is authorized to view this material (must be in the same class)
-if ($_SESSION['user_type'] === 'siswa') {
+if ($_SESSION['user_role'] === 'siswa') {
     $student_id = $_SESSION['user_id'];
     $query_check = "SELECT kelas_id FROM pengguna WHERE id = '$student_id'";
     $result_check = mysqli_query($conn, $query_check);
@@ -81,15 +81,15 @@ include_once '../../includes/header.php';
 
 <div class="container-fluid py-4">
     <div class="mb-4">
-        <?php if ($_SESSION['user_type'] === 'siswa'): ?>
+        <?php if ($_SESSION['user_role'] === 'siswa'): ?>
             <a href="materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
-        <?php elseif ($_SESSION['user_type'] === 'guru'): ?>
+        <?php elseif ($_SESSION['user_role'] === 'guru'): ?>
             <a href="../guru/materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
-        <?php elseif ($_SESSION['user_type'] === 'kepsek'): ?>
+        <?php elseif ($_SESSION['user_role'] === 'kepsek'): ?>
             <a href="../kepsek/materials.php" class="btn btn-sm btn-outline-secondary mb-2">
                 <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Materi
             </a>
@@ -102,7 +102,7 @@ include_once '../../includes/header.php';
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="h3"><?php echo $material['judul']; ?></h1>
             
-            <?php if ($_SESSION['user_type'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
+            <?php if ($_SESSION['user_role'] === 'guru' && $material['dibuat_oleh'] === $_SESSION['user_id']): ?>
                 <a href="../guru/material_detail.php?id=<?php echo $material_id; ?>" class="btn btn-primary">
                     <i class="fas fa-edit me-2"></i> Edit Materi
                 </a>
@@ -177,7 +177,7 @@ include_once '../../includes/header.php';
                                     <small class="text-muted">Dibuat pada: <?php echo formatDate($quiz['tanggal_dibuat']); ?></small>
                                     
                                     <div class="mt-2">
-                                        <?php if ($_SESSION['user_type'] === 'siswa'): ?>
+                                        <?php if ($_SESSION['user_role'] === 'siswa'): ?>
                                             <?php if ($quiz['sudah_dikerjakan'] > 0): ?>
                                                 <a href="quiz_result.php?id=<?php echo $quiz['id']; ?>" class="btn btn-sm btn-success">
                                                     <i class="fas fa-eye me-1"></i> Lihat Hasil
@@ -187,14 +187,14 @@ include_once '../../includes/header.php';
                                                     <i class="fas fa-pencil-alt me-1"></i> Kerjakan Quiz
                                                 </a>
                                             <?php endif; ?>
-                                        <?php elseif ($_SESSION['user_type'] === 'guru'): ?>
+                                        <?php elseif ($_SESSION['user_role'] === 'guru'): ?>
                                             <a href="../guru/quiz_edit.php?id=<?php echo $quiz['id']; ?>" class="btn btn-sm btn-primary">
                                                 <i class="fas fa-edit me-1"></i> Edit Quiz
                                             </a>
                                             <a href="../guru/quiz_detail.php?id=<?php echo $quiz['id']; ?>" class="btn btn-sm btn-info">
                                                 <i class="fas fa-chart-bar me-1"></i> Lihat Hasil
                                             </a>
-                                        <?php elseif ($_SESSION['user_type'] === 'kepsek'): ?>
+                                        <?php elseif ($_SESSION['user_role'] === 'kepsek'): ?>
                                             <a href="../guru/quiz_detail.php?id=<?php echo $quiz['id']; ?>" class="btn btn-sm btn-info">
                                                 <i class="fas fa-chart-bar me-1"></i> Lihat Hasil
                                             </a>

@@ -111,36 +111,36 @@ include_once '../../includes/header.php';
     
     <!-- Materials Stats -->
     <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-4">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0 me-3">
-                            <span class="rounded-circle bg-primary p-3 text-white">
-                                <i class="fas fa-book fa-2x"></i>
-                            </span>
+                            <div class="p-3 rounded-circle bg-primary bg-gradient text-white d-inline-flex align-items-center justify-content-center" style="width: 64px; height: 64px;">
+                                <i class="fas fa-book-open fa-2x"></i>
+                            </div>
                         </div>
                         <div>
-                            <h6 class="mb-0">Total Materi</h6>
-                            <h2 class="mt-2 mb-0"><?php echo mysqli_num_rows($result_materials); ?></h2>
+                            <h6 class="text-muted text-uppercase mb-1 small">Total Materi</h6>
+                            <h2 class="fw-bold mb-0"><?php echo mysqli_num_rows($result_materials); ?></h2>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-4">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0 me-3">
-                            <span class="rounded-circle bg-success p-3 text-white">
+                            <div class="p-3 rounded-circle bg-success bg-gradient text-white d-inline-flex align-items-center justify-content-center" style="width: 64px; height: 64px;">
                                 <i class="fas fa-school fa-2x"></i>
-                            </span>
+                            </div>
                         </div>
                         <div>
-                            <h6 class="mb-0">Total Kelas</h6>
-                            <h2 class="mt-2 mb-0"><?php echo count($classes); ?></h2>
+                            <h6 class="text-muted text-uppercase mb-1 small">Total Kelas</h6>
+                            <h2 class="fw-bold mb-0"><?php echo count($classes); ?></h2>
                         </div>
                     </div>
                 </div>
@@ -154,18 +154,18 @@ include_once '../../includes/header.php';
         $teachers_count = mysqli_fetch_assoc($result_teachers_count)['total'];
         ?>
         
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-4">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0 me-3">
-                            <span class="rounded-circle bg-info p-3 text-white">
-                                <i class="fas fa-chalkboard-teacher fa-2x"></i>
-                            </span>
+                            <div class="p-3 rounded-circle bg-info bg-gradient text-white d-inline-flex align-items-center justify-content-center" style="width: 64px; height: 64px;">
+                                <i class="fas fa-user-tie fa-2x"></i>
+                            </div>
                         </div>
                         <div>
-                            <h6 class="mb-0">Guru Kontributor</h6>
-                            <h2 class="mt-2 mb-0"><?php echo $teachers_count; ?></h2>
+                            <h6 class="text-muted text-uppercase mb-1 small">Guru Kontributor</h6>
+                            <h2 class="fw-bold mb-0"><?php echo $teachers_count; ?></h2>
                         </div>
                     </div>
                 </div>

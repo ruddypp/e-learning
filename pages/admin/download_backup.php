@@ -33,7 +33,7 @@ if (!file_exists($file_path)) {
 }
 
 // Log activity
-logActivity($_SESSION['user_id'], 'download', "Admin mengunduh file backup: $file_name");
+logActivity($_SESSION['user_id'], 'view_materi', "Admin mengunduh file backup: $file_name");
 
 // Set headers and send file
 header('Content-Description: File Transfer');

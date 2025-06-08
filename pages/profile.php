@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             setFlashMessage('success', 'Profil berhasil diperbarui.');
             
             // Log activity
-            logActivity($user_id, 'update_profile', 'Pengguna memperbarui profil');
+            logActivity($user_id, 'tambah_materi', 'Pengguna memperbarui profil');
             
             redirect('profile.php');
         } else {

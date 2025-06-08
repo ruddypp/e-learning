@@ -10,7 +10,7 @@ checkAccess(['admin']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Add new class
     if (isset($_POST['action']) && $_POST['action'] === 'add_class') {
-        $class_id = generateID('CLS');
+        $class_id = generateID('CLS', 'kelas');
         $class_name = sanitizeInput($_POST['class_name']);
         $academic_year = sanitizeInput($_POST['academic_year']);
         $wali_kelas = !empty($_POST['wali_kelas']) ? sanitizeInput($_POST['wali_kelas']) : null;
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if (mysqli_query($conn, $query)) {
                     // Log activity
-                    logActivity($_SESSION['user_id'], 'tambah_kelas', "Admin menambahkan kelas baru: $class_name ($academic_year)");
+                    logActivity($_SESSION['user_id'], 'tambah_materi', "Admin menambahkan kelas baru: $class_name ($academic_year)");
                     
                     // Add to system log
                     $ip = $_SERVER['REMOTE_ADDR'];
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if (mysqli_query($conn, $query)) {
                     // Log activity
-                    logActivity($_SESSION['user_id'], 'edit_kelas', "Admin mengedit kelas: $class_name ($academic_year)");
+                    logActivity($_SESSION['user_id'], 'edit_materi', "Admin mengedit kelas: $class_name ($academic_year)");
                     
                     // Add to system log
                     $ip = $_SERVER['REMOTE_ADDR'];
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (mysqli_query($conn, $query)) {
                 // Log activity
-                logActivity($_SESSION['user_id'], 'hapus_kelas', "Admin menghapus kelas dengan ID: $class_id");
+                logActivity($_SESSION['user_id'], 'hapus_materi', "Admin menghapus kelas dengan ID: $class_id");
                 
                 // Add to system log
                 $ip = $_SERVER['REMOTE_ADDR'];

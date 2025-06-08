@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         setFlashMessage('success', 'Soal berhasil ditambahkan.');
                         
                         // Log activity
-                        logActivity($_SESSION['user_id'], 'tambah_soal', "Guru menambahkan soal baru pada quiz: {$quiz['judul']}");
+                        logActivity($_SESSION['user_id'], 'tambah_materi', "Guru menambahkan soal baru pada quiz: {$quiz['judul']}");
                     } else {
                         setFlashMessage('error', 'Gagal menambahkan pilihan jawaban.');
                     }
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         setFlashMessage('success', 'Soal berhasil diperbarui.');
                         
                         // Log activity
-                        logActivity($_SESSION['user_id'], 'edit_soal', "Guru mengedit soal pada quiz: {$quiz['judul']}");
+                        logActivity($_SESSION['user_id'], 'edit_materi', "Guru mengedit soal pada quiz: {$quiz['judul']}");
                     } else {
                         setFlashMessage('error', 'Gagal memperbarui pilihan jawaban.');
                     }
@@ -137,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlashMessage('success', 'Soal berhasil dihapus.');
                     
                     // Log activity
-                    logActivity($_SESSION['user_id'], 'hapus_soal', "Guru menghapus soal dari quiz: {$quiz['judul']}");
+                    logActivity($_SESSION['user_id'], 'hapus_materi', "Guru menghapus soal dari quiz: {$quiz['judul']}");
                 } catch (Exception $e) {
                     $conn->rollback();
                     setFlashMessage('error', 'Gagal menghapus soal: ' . $e->getMessage());

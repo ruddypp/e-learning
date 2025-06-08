@@ -17,10 +17,11 @@ $quiz_id = sanitizeInput($_GET['id']);
 $student_id = $_SESSION['user_id'];
 
 // Get quiz details
-$query_quiz = "SELECT t.*, m.judul as materi_judul, k.nama as kelas_nama 
+$query_quiz = "SELECT t.*, m.judul as materi_judul, k.nama as kelas_nama, p.nama as guru_nama
               FROM tugas t 
               JOIN materi_coding m ON t.materi_id = m.id 
               JOIN kelas k ON t.kelas_id = k.id 
+              JOIN pengguna p ON t.dibuat_oleh = p.id
               WHERE t.id = '$quiz_id'";
 $result_quiz = mysqli_query($conn, $query_quiz);
 
@@ -97,6 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $conn->commit();
         
+        // Log activity
+        logActivity($student_id, 'isi_kuesioner', "Siswa mengisi kuesioner evaluasi quiz: {$quiz['judul']}", $quiz_id);
+        
         setFlashMessage('success', 'Terima kasih atas masukan Anda!');
         header('Location: quiz_result.php?id=' . $quiz_id);
         exit;
@@ -137,20 +141,42 @@ $query_questionnaire = "SELECT jk.id
 $result_questionnaire = mysqli_query($conn, $query_questionnaire);
 $has_submitted_questionnaire = mysqli_num_rows($result_questionnaire) > 0;
 
+// Get available questionnaires for this class
+$query_available_questionnaires = "SELECT k.id, k.judul, k.deskripsi, k.tanggal_dibuat, p.nama as dibuat_oleh
+                                 FROM kuesioner k
+                                 JOIN pengguna p ON k.dibuat_oleh = p.id
+                                 WHERE k.kelas_id = '{$quiz['kelas_id']}' 
+                                 AND k.status = 'published'
+                                 AND k.id NOT IN (
+                                    SELECT DISTINCT pk.kuesioner_id 
+                                    FROM jawaban_kuesioner jk
+                                    JOIN pertanyaan_kuesioner pk ON jk.pertanyaan_id = pk.id
+                                    WHERE jk.siswa_id = '$student_id'
+                                 )
+                                 LIMIT 3";
+$result_available_questionnaires = mysqli_query($conn, $query_available_questionnaires);
+
 // Include header
 include_once '../../includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
     <div class="mb-4">
-        <a href="dashboard.php" class="btn btn-sm btn-outline-secondary mb-2">
-            <i class="fas fa-arrow-left me-2"></i> Kembali ke Dashboard
+        <a href="quizzes.php" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="fas fa-arrow-left me-2"></i> Kembali ke Daftar Quiz
         </a>
         <h1 class="h3">Hasil Quiz: <?php echo $quiz['judul']; ?></h1>
         <p>
             <span class="badge bg-info me-2"><?php echo $quiz['kelas_nama']; ?></span>
             <span class="badge bg-secondary me-2">Materi: <?php echo $quiz['materi_judul']; ?></span>
             <span class="badge bg-success">Tanggal Pengerjaan: <?php echo formatDate($attempt['tanggal_pengumpulan']); ?></span>
+            <?php if ($quiz['status'] === 'published'): ?>
+                <span class="badge bg-success ms-2">Aktif</span>
+            <?php elseif ($quiz['status'] === 'closed'): ?>
+                <span class="badge bg-danger ms-2">Ditutup</span>
+            <?php else: ?>
+                <span class="badge bg-secondary ms-2">Draft</span>
+            <?php endif; ?>
         </p>
     </div>
     
@@ -189,6 +215,26 @@ include_once '../../includes/header.php';
                             <div class="h4 mb-0"><?php echo $earned_bobot; ?></div>
                             <div class="small text-muted">Poin Diperoleh</div>
                         </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Informasi Quiz:</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-user me-2"></i> Dibuat oleh</span>
+                                <span><?php echo $quiz['guru_nama']; ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-calendar me-2"></i> Tanggal Quiz</span>
+                                <span><?php echo formatDate($quiz['tanggal_dibuat']); ?></span>
+                            </li>
+                            <?php if ($quiz['tanggal_deadline']): ?>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-clock me-2"></i> Deadline</span>
+                                <span><?php echo formatDate($quiz['tanggal_deadline']); ?></span>
+                            </li>
+                            <?php endif; ?>
+                        </ul>
                     </div>
                     
                     <?php if ($attempt['feedback']): ?>
@@ -270,130 +316,131 @@ include_once '../../includes/header.php';
                             
                             <div class="mb-3">
                                 <label for="feedback" class="form-label">Saran dan masukan:</label>
-                                <textarea class="form-control" id="feedback" name="feedback" rows="4"></textarea>
+                                <textarea class="form-control" id="feedback" name="feedback" rows="4" placeholder="Tulis saran atau masukan Anda tentang quiz ini..."></textarea>
                             </div>
                             
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-success">Kirim Kuesioner</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-paper-plane me-2"></i> Kirim Evaluasi
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             <?php else: ?>
-                <!-- Thank you message -->
+                <!-- Available Questionnaires -->
                 <div class="card h-100">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0">Kuesioner Evaluasi</h5>
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> Kuesioner Lainnya</h5>
                     </div>
-                    <div class="card-body text-center">
-                        <div class="py-5">
-                            <i class="fas fa-check-circle text-success fa-5x mb-3"></i>
-                            <h5>Terima Kasih!</h5>
-                            <p>Anda telah mengisi kuesioner evaluasi untuk quiz ini.</p>
-                            <p class="text-muted">Masukan Anda sangat berharga untuk meningkatkan kualitas pembelajaran.</p>
-                        </div>
+                    <div class="card-body">
+                        <p class="text-success mb-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Terima kasih! Anda telah mengisi kuesioner evaluasi untuk quiz ini.
+                        </p>
+                        
+                        <?php if (mysqli_num_rows($result_available_questionnaires) > 0): ?>
+                            <h6>Kuesioner lain yang tersedia:</h6>
+                            <div class="list-group">
+                                <?php while ($questionnaire = mysqli_fetch_assoc($result_available_questionnaires)): ?>
+                                    <a href="questionnaire.php?id=<?php echo $questionnaire['id']; ?>" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1"><?php echo $questionnaire['judul']; ?></h6>
+                                            <small><?php echo formatDate($questionnaire['tanggal_dibuat']); ?></small>
+                                        </div>
+                                        <p class="mb-1"><?php echo limitText($questionnaire['deskripsi'], 100); ?></p>
+                                        <small class="text-muted">Dibuat oleh: <?php echo $questionnaire['dibuat_oleh']; ?></small>
+                                    </a>
+                                <?php endwhile; ?>
+                            </div>
+                            <div class="mt-3">
+                                <a href="questionnaires.php" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-list me-2"></i> Lihat Semua Kuesioner
+                                </a>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Saat ini tidak ada kuesioner lain yang tersedia untuk Anda.
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
     
-    <!-- Detailed Answers -->
+    <!-- Quiz Answers -->
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header bg-secondary text-white">
             <h5 class="mb-0">Detail Jawaban</h5>
-            <span class="badge bg-primary"><?php echo count($answers); ?> Soal</span>
         </div>
         <div class="card-body">
             <?php if (empty($answers)): ?>
-                <p class="text-center text-muted">Tidak ada data jawaban.</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tidak ada data jawaban yang tersedia.
+                </div>
             <?php else: ?>
-                <div class="accordion" id="accordionAnswers">
-                    <?php $question_number = 1; ?>
-                    <?php foreach ($answers as $answer): ?>
-                        <div class="accordion-item mb-3 border">
-                            <h2 class="accordion-header" id="heading<?php echo $answer['id']; ?>">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
-                                        data-bs-target="#collapse<?php echo $answer['id']; ?>" 
-                                        aria-expanded="false" aria-controls="collapse<?php echo $answer['id']; ?>">
-                                    <div class="d-flex align-items-center w-100">
-                                        <span class="badge bg-secondary me-2"><?php echo $question_number++; ?></span>
-                                        <div class="me-auto">
-                                            <?php echo limitText(strip_tags($answer['pertanyaan']), 70); ?>
-                                        </div>
-                                        <div class="d-flex align-items-center ms-3">
-                                            <?php if ($answer['nilai_per_soal'] !== null): ?>
-                                                <span class="badge <?php echo ($answer['nilai_per_soal'] > 0) ? 'bg-success' : 'bg-danger'; ?> me-2">
-                                                    <?php echo $answer['nilai_per_soal']; ?>/<?php echo $answer['bobot']; ?> poin
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="badge bg-warning me-2">Belum dinilai</span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                </button>
-                            </h2>
-                            <div id="collapse<?php echo $answer['id']; ?>" class="accordion-collapse collapse" 
-                                 aria-labelledby="heading<?php echo $answer['id']; ?>" 
-                                 data-bs-parent="#accordionAnswers">
-                                <div class="accordion-body">
-                                    <div class="mb-3">
-                                        <h6>Pertanyaan:</h6>
-                                        <div class="question-content p-3 bg-light rounded mb-3">
-                                            <?php echo $answer['pertanyaan']; ?>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <h6>Jawaban Anda:</h6>
-                                        <?php if ($answer['jenis'] === 'pilihan_ganda'): ?>
-                                            <div class="p-3 <?php echo $answer['is_benar'] ? 'bg-success text-white' : 'bg-danger text-white'; ?> rounded">
-                                                <?php echo $answer['pilihan_teks'] ?? 'Tidak menjawab'; ?>
-                                                <?php if ($answer['is_benar']): ?>
-                                                    <i class="fas fa-check-circle float-end"></i>
-                                                <?php else: ?>
-                                                    <i class="fas fa-times-circle float-end"></i>
-                                                <?php endif; ?>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="p-3 bg-light rounded <?php echo $answer['jenis'] === 'coding' ? 'font-monospace' : ''; ?>">
-                                                <?php echo $answer['jawaban'] ?? 'Tidak menjawab'; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
+                <?php foreach ($answers as $index => $answer): ?>
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Soal <?php echo $index + 1; ?></h6>
+                                <div>
+                                    <span class="badge bg-secondary me-2">Bobot: <?php echo $answer['bobot']; ?></span>
+                                    <?php if ($answer['nilai_per_soal'] !== null): ?>
+                                        <span class="badge bg-<?php echo ($answer['nilai_per_soal'] > 0) ? 'success' : 'danger'; ?>">
+                                            Nilai: <?php echo $answer['nilai_per_soal']; ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning">Belum dinilai</span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <?php echo $answer['pertanyaan']; ?>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <h6>Jawaban Anda:</h6>
+                                <?php if ($answer['jenis'] === 'pilihan_ganda'): ?>
+                                    <div class="p-3 bg-light rounded">
+                                        <?php 
+                                        if ($answer['pilihan_id']) {
+                                            echo $answer['pilihan_teks'];
+                                            
+                                            if ($answer['is_benar']) {
+                                                echo ' <span class="badge bg-success"><i class="fas fa-check"></i> Benar</span>';
+                                            } else {
+                                                echo ' <span class="badge bg-danger"><i class="fas fa-times"></i> Salah</span>';
+                                            }
+                                        } else {
+                                            echo '<em>Tidak menjawab</em>';
+                                        }
+                                        ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="p-3 bg-light rounded">
+                                        <?php 
+                                        if ($answer['jawaban']) {
+                                            echo nl2br($answer['jawaban']);
+                                        } else {
+                                            echo '<em>Tidak menjawab</em>';
+                                        }
+                                        ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
 </div>
-
-<style>
-    .question-content {
-        line-height: 1.6;
-    }
-    
-    .question-content img {
-        max-width: 100%;
-        height: auto;
-    }
-    
-    .question-content pre {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 5px;
-        overflow-x: auto;
-    }
-    
-    .question-content code {
-        background-color: #f1f1f1;
-        padding: 2px 4px;
-        border-radius: 4px;
-    }
-</style>
 
 <?php
 // Include footer

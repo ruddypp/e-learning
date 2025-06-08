@@ -21,11 +21,11 @@ if (isLoggedIn()) {
         mysqli_stmt_bind_param($stmt, "s", $userId);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
-        
+    
         if (mysqli_num_rows($result) > 0) {
-            // Only log if the user exists
-            logActivity($userId, 'logout', 'Logout berhasil');
-        }
+        // Only log if the user exists
+        logActivity($userId, 'logout', 'Logout berhasil');
+    }
     } catch (Exception $e) {
         // If there's an error, continue with logout anyway
     }

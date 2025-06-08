@@ -35,6 +35,7 @@ if ($filter_applied) {
 $quizzes = [];
 if ($filter_applied) {
     $query_quizzes = "SELECT t.id, t.judul, t.tanggal_dibuat, m.judul as materi_judul, p.nama as guru_nama,
+                     p.id as guru_id,
                      (SELECT COUNT(*) FROM nilai_tugas WHERE tugas_id = t.id) as jumlah_pengerjaan,
                      (SELECT COUNT(*) FROM nilai_tugas WHERE tugas_id = t.id AND nilai IS NOT NULL) as jumlah_dinilai,
                      (SELECT AVG(nilai) FROM nilai_tugas WHERE tugas_id = t.id AND nilai IS NOT NULL) as rata_nilai
@@ -129,8 +130,11 @@ if ($filter_applied && !empty($students) && !empty($quizzes)) {
     foreach ($quiz_data as $quiz_id => &$data) {
         if ($data['count'] > 0) {
             $data['average'] = round($data['total'] / $data['count'], 1);
+        } else {
+            $data['average'] = 0; // Pastikan kunci 'average' selalu ada
         }
     }
+    unset($data); // Hapus referensi terakhir
     
     // Calculate time trend averages
     $time_trend_processed = [];
@@ -141,6 +145,72 @@ if ($filter_applied && !empty($students) && !empty($quizzes)) {
             'date' => $date,
             'average' => round($data['total'] / $data['count'], 1)
         ];
+    }
+
+    // Get teacher performance data
+    $teacher_performance = [];
+    if (!empty($quizzes)) {
+        // Group quizzes by teacher
+        $teacher_quizzes = [];
+        foreach ($quizzes as $quiz) {
+            $teacher_id = $quiz['guru_id'];
+            if (!isset($teacher_quizzes[$teacher_id])) {
+                $teacher_quizzes[$teacher_id] = [
+                    'nama' => $quiz['guru_nama'],
+                    'quizzes' => [],
+                    'total_nilai' => 0,
+                    'count_nilai' => 0,
+                    'total_pengerjaan' => 0,
+                    'total_dinilai' => 0,
+                    'avg_response_time' => 0
+                ];
+            }
+            $teacher_quizzes[$teacher_id]['quizzes'][] = $quiz;
+            if ($quiz['rata_nilai'] !== null) {
+                $teacher_quizzes[$teacher_id]['total_nilai'] += $quiz['rata_nilai'] * $quiz['jumlah_dinilai'];
+                $teacher_quizzes[$teacher_id]['count_nilai'] += $quiz['jumlah_dinilai'];
+            }
+            $teacher_quizzes[$teacher_id]['total_pengerjaan'] += $quiz['jumlah_pengerjaan'];
+            $teacher_quizzes[$teacher_id]['total_dinilai'] += $quiz['jumlah_dinilai'];
+        }
+        
+        // Calculate average response time (days between submission and grading)
+        $query_response_time = "SELECT p.id as guru_id, p.nama as guru_nama, 
+                              AVG(DATEDIFF(nt.tanggal_dinilai, nt.tanggal_pengumpulan)) as avg_days
+                              FROM nilai_tugas nt
+                              JOIN tugas t ON nt.tugas_id = t.id
+                              JOIN pengguna p ON t.dibuat_oleh = p.id
+                              WHERE t.kelas_id = '$class_filter' 
+                              AND nt.tanggal_dinilai IS NOT NULL
+                              AND nt.tanggal_pengumpulan IS NOT NULL
+                              GROUP BY p.id";
+        $result_response_time = mysqli_query($conn, $query_response_time);
+        
+        while ($row = mysqli_fetch_assoc($result_response_time)) {
+            if (isset($teacher_quizzes[$row['guru_id']])) {
+                $teacher_quizzes[$row['guru_id']]['avg_response_time'] = round($row['avg_days'], 1);
+            }
+        }
+        
+        // Calculate final stats for each teacher
+        foreach ($teacher_quizzes as $teacher_id => $data) {
+            $avg_nilai = ($data['count_nilai'] > 0) ? round($data['total_nilai'] / $data['count_nilai'], 1) : 0;
+            $grading_rate = ($data['total_pengerjaan'] > 0) ? round(($data['total_dinilai'] / $data['total_pengerjaan']) * 100, 1) : 0;
+            
+            $teacher_performance[] = [
+                'id' => $teacher_id,
+                'nama' => $data['nama'],
+                'jumlah_quiz' => count($data['quizzes']),
+                'avg_nilai' => $avg_nilai,
+                'response_time' => $data['avg_response_time'],
+                'grading_rate' => $grading_rate
+            ];
+        }
+    }
+
+    // Log activity
+    if ($filter_applied) {
+        logActivity($_SESSION['user_id'], 'view_grade', "Kepala Sekolah melihat analisis nilai kelas: $class_name", $class_filter);
     }
 }
 
@@ -236,6 +306,122 @@ include_once '../../includes/header.php';
                             <?php endif; ?>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Teacher Performance Analysis -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i> Analisis Efektivitas Pengajaran</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($teacher_performance)): ?>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Tidak ada data yang cukup untuk menganalisis efektivitas pengajaran.
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Guru</th>
+                                        <th>Jumlah Quiz</th>
+                                        <th>Rata-rata Nilai</th>
+                                        <th>Tingkat Penilaian</th>
+                                        <th>Waktu Respons (Hari)</th>
+                                        <th>Efektivitas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($teacher_performance as $teacher): ?>
+                                        <tr>
+                                            <td><?php echo $teacher['nama']; ?></td>
+                                            <td><?php echo $teacher['jumlah_quiz']; ?></td>
+                                            <td>
+                                                <span class="badge bg-<?php echo scoreColor($teacher['avg_nilai']); ?>">
+                                                    <?php echo $teacher['avg_nilai']; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-info" role="progressbar" 
+                                                         style="width: <?php echo $teacher['grading_rate']; ?>%;" 
+                                                         aria-valuenow="<?php echo $teacher['grading_rate']; ?>" 
+                                                         aria-valuemin="0" aria-valuemax="100">
+                                                        <?php echo $teacher['grading_rate']; ?>%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <?php 
+                                                $response_color = 'success';
+                                                if ($teacher['response_time'] > 7) {
+                                                    $response_color = 'danger';
+                                                } elseif ($teacher['response_time'] > 3) {
+                                                    $response_color = 'warning';
+                                                }
+                                                ?>
+                                                <span class="badge bg-<?php echo $response_color; ?>">
+                                                    <?php echo $teacher['response_time']; ?> hari
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                // Calculate effectiveness score (0-100)
+                                                $score = 0;
+                                                
+                                                // 40% from average grade
+                                                $grade_score = ($teacher['avg_nilai'] / 100) * 40;
+                                                
+                                                // 30% from grading rate
+                                                $grading_score = ($teacher['grading_rate'] / 100) * 30;
+                                                
+                                                // 30% from response time (faster is better)
+                                                $time_score = 0;
+                                                if ($teacher['response_time'] <= 1) {
+                                                    $time_score = 30;
+                                                } elseif ($teacher['response_time'] <= 3) {
+                                                    $time_score = 20;
+                                                } elseif ($teacher['response_time'] <= 7) {
+                                                    $time_score = 10;
+                                                }
+                                                
+                                                $score = round($grade_score + $grading_score + $time_score);
+                                                $effectiveness = 'Kurang';
+                                                $score_color = 'danger';
+                                                
+                                                if ($score >= 80) {
+                                                    $effectiveness = 'Sangat Baik';
+                                                    $score_color = 'success';
+                                                } elseif ($score >= 60) {
+                                                    $effectiveness = 'Baik';
+                                                    $score_color = 'primary';
+                                                } elseif ($score >= 40) {
+                                                    $effectiveness = 'Cukup';
+                                                    $score_color = 'warning';
+                                                }
+                                                ?>
+                                                <span class="badge bg-<?php echo $score_color; ?>">
+                                                    <?php echo $effectiveness; ?> (<?php echo $score; ?>%)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Tentang Analisis Efektivitas Pengajaran:</strong> 
+                            <ul class="mb-0">
+                                <li>Rata-rata Nilai: Nilai rata-rata yang diperoleh siswa pada quiz yang dibuat oleh guru.</li>
+                                <li>Tingkat Penilaian: Persentase tugas yang telah dinilai oleh guru.</li>
+                                <li>Waktu Respons: Rata-rata waktu (dalam hari) yang dibutuhkan guru untuk menilai quiz.</li>
+                                <li>Efektivitas: Penilaian keseluruhan berdasarkan nilai, kecepatan menilai, dan tingkat penilaian.</li>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -423,7 +609,7 @@ include_once '../../includes/header.php';
                                     <?php foreach ($quizzes as $quiz_id => $quiz): ?>
                                         <th class="text-center">
                                             <?php if (isset($quiz_data[$quiz_id]) && $quiz_data[$quiz_id]['count'] > 0): ?>
-                                                <?php echo $quiz_data[$quiz_id]['average']; ?>
+                                                <?php echo isset($quiz_data[$quiz_id]['average']) ? $quiz_data[$quiz_id]['average'] : '-'; ?>
                                             <?php else: ?>
                                                 -
                                             <?php endif; ?>
@@ -507,7 +693,13 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: <?php echo json_encode(array_column($quiz_data, 'label')); ?>,
             datasets: [{
                 label: 'Rata-rata Nilai',
-                data: <?php echo json_encode(array_column($quiz_data, 'average')); ?>,
+                data: <?php 
+                    $averages = [];
+                    foreach ($quiz_data as $data) {
+                        $averages[] = isset($data['average']) ? $data['average'] : 0;
+                    }
+                    echo json_encode($averages);
+                ?>,
                 backgroundColor: 'rgba(54, 162, 235, 0.6)',
                 borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 1
@@ -568,7 +760,13 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: <?php echo json_encode(array_column($time_trend_processed, 'date')); ?>,
             datasets: [{
                 label: 'Rata-rata Nilai',
-                data: <?php echo json_encode(array_column($time_trend_processed, 'average')); ?>,
+                data: <?php
+                    $averages = [];
+                    foreach ($time_trend_processed as $data) {
+                        $averages[] = isset($data['average']) ? $data['average'] : 0;
+                    }
+                    echo json_encode($averages);
+                ?>,
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 2,

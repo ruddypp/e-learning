@@ -8,29 +8,31 @@ MENTARI (Manajemen Terpadu Pembelajaran Daring) adalah aplikasi e-learning yang 
 - Kelola akun (guru, murid, kepala sekolah)
 - Kelola data kelas dan struktur sistem
 - Monitoring aktivitas pengguna
-- Backup dan maintenance data
+- Backup dan maintenance data dengan pencatatan riwayat backup
 - Verifikasi data yang masuk jika diperlukan
 
 ### Siswa
 - Login menggunakan NISN
 - Membaca materi coding sesuai kelas
-- Mengerjakan quiz yang telah disiapkan guru
+- Mengerjakan quiz yang telah dipublikasikan oleh guru
 - Melihat nilai hasil quiz dan belajar mandiri
-- Mengisi kuesioner setelah mengerjakan quiz
+- Mengisi kuesioner sebagai umpan balik setelah mengerjakan quiz
 
 ### Guru
 - Login menggunakan NUPTK
-- Menambahkan materi coding
-- Menambahkan dan mengedit soal quiz
-- Melihat hasil quiz siswa
+- Menambahkan materi coding untuk kelas yang diajar
+- Menambahkan, mengedit, dan mempublikasikan quiz
+- Mengelola status quiz (draft, publikasi, tutup)
+- Melihat hasil quiz siswa dan memberikan nilai
 - Menganalisis capaian belajar berdasarkan nilai siswa
-- Melihat isi kuesioner setiap kelas
+- Melihat isi kuesioner untuk meningkatkan kualitas pengajaran
 
 ### Kepala Sekolah
 - Melihat seluruh materi pembelajaran
 - Melihat hasil dan perkembangan nilai siswa
-- Memantau aktivitas belajar dan efektivitas pengajaran
-- Melihat kuesioner tiap kelas
+- Memantau aktivitas belajar siswa
+- Menganalisis efektivitas pengajaran guru berdasarkan data performa
+- Melihat kuesioner tiap kelas untuk evaluasi mutu pembelajaran
 
 ## Persyaratan Sistem
 
@@ -90,6 +92,8 @@ elearning/
 
 3. **Backup Data**
    - Buka halaman "Backup & Maintenance" untuk membuat atau mengembalikan backup database
+   - Setiap backup dicatat dalam database untuk pelacakan yang lebih baik
+   - Tambahkan deskripsi pada backup untuk memudahkan identifikasi
    - Backup otomatis dapat diatur melalui cron job
 
 4. **Verifikasi Data**
@@ -103,12 +107,15 @@ elearning/
    - Materi akan tersedia untuk kelas yang ditentukan
 
 2. **Mengelola Quiz**
-   - Buat quiz baru melalui halaman "Quiz"
+   - Buat quiz baru melalui halaman "Quiz" (status awal: draft)
    - Tambahkan berbagai jenis pertanyaan: pilihan ganda, essay, atau coding
    - Atur deadline dan bobot nilai
+   - Publikasikan quiz saat siap untuk dikerjakan siswa
+   - Tutup quiz ketika periode pengerjaan telah selesai
 
 3. **Melihat Hasil**
    - Pantau nilai siswa melalui halaman "Laporan Nilai"
+   - Beri nilai dan feedback untuk jawaban siswa
    - Lihat statistik performa kelas
 
 4. **Kuesioner**
@@ -122,8 +129,8 @@ elearning/
    - Filter materi berdasarkan tingkat kesulitan
 
 2. **Mengerjakan Quiz**
-   - Lihat quiz yang tersedia di dashboard
-   - Kerjakan quiz sebelum deadline
+   - Lihat quiz yang tersedia di dashboard (hanya quiz yang telah dipublikasikan)
+   - Kerjakan quiz sebelum deadline dan selama statusnya masih terbuka
    - Lihat hasil dan feedback setelah dinilai oleh guru
 
 3. **Melihat Nilai**
@@ -131,17 +138,23 @@ elearning/
    - Lihat statistik dan perbandingan dengan rata-rata kelas
 
 4. **Mengisi Kuesioner**
-   - Isi kuesioner yang tersedia setelah menyelesaikan quiz
+   - Isi kuesioner evaluasi setelah menyelesaikan quiz
    - Berikan umpan balik tentang materi dan pembelajaran
+   - Lihat kuesioner lain yang tersedia untuk diisi
 
 ### Kepala Sekolah
 
 1. **Monitoring Aktivitas**
    - Pantau aktivitas pembelajaran melalui dashboard
    - Lihat statistik penggunaan sistem
+   - Analisis tren aktivitas belajar
 
 2. **Analisis Performa**
    - Analisis nilai siswa berdasarkan kelas
+   - Pantau efektivitas pengajaran guru melalui metrik:
+     - Rata-rata nilai quiz
+     - Kecepatan pemberian nilai
+     - Tingkat penyelesaian penilaian
    - Identifikasi area yang memerlukan perhatian khusus
 
 3. **Review Materi**
@@ -152,14 +165,33 @@ elearning/
    - Lihat hasil kuesioner dari semua kelas
    - Gunakan data untuk evaluasi program pembelajaran
 
-## Keamanan
+## Fitur Teknis
+
+### Manajemen Quiz
+- Status Quiz: Draft (persiapan), Published (tersedia untuk siswa), Closed (tidak tersedia)
+- Auto-grading untuk soal pilihan ganda
+- Dukungan untuk berbagai jenis soal (pilihan ganda, essay, coding)
+- Analisis hasil quiz dengan visualisasi grafik
+
+### Sistem Kuesioner
+- Kuesioner evaluasi terintegrasi setelah quiz
+- Dukungan berbagai jenis pertanyaan (skala, teks bebas, pilihan ganda)
+- Analisis hasil kuesioner untuk guru dan kepala sekolah
+
+### Pencatatan Aktivitas
+- Pencatatan otomatis untuk login, logout, akses materi, pengerjaan quiz
+- Pencatatan untuk aktivitas penilaian guru
+- Pencatatan untuk aktivitas backup dan restore
+- Visualisasi tren aktivitas untuk kepala sekolah
+
+### Keamanan
 
 Sistem ini memiliki beberapa fitur keamanan:
-- Perlindungan terhadap SQL Injection
-- Enkripsi password
-- Validasi input
-- Pengelolaan sesi yang aman
-- Perlindungan direktori sensitif
+- Perlindungan terhadap SQL Injection dengan prepared statements
+- Enkripsi password menggunakan algoritma hash modern
+- Validasi input untuk semua form
+- Pengelolaan sesi yang aman dengan logout otomatis
+- Perlindungan direktori sensitif dengan .htaccess
 
 ## Pemecahan Masalah
 
@@ -175,6 +207,11 @@ Sistem ini memiliki beberapa fitur keamanan:
 ### Error 500
 - Periksa log error server
 - Pastikan semua tabel database ada dan sesuai struktur
+
+### Masalah Quiz
+- Jika siswa tidak dapat mengakses quiz, pastikan status quiz adalah "Published"
+- Pastikan deadline quiz belum terlewati
+- Verifikasi bahwa siswa terdaftar di kelas yang sesuai
 
 ## Kontak
 

@@ -17,7 +17,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MENTARI - E-Learning Coding</title>
+    <title>Portaldik - Elearning Coding</title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -276,8 +276,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-bars"></i>
             </button>
             <a class="navbar-brand" href="../../index.php">
-                <img src="../../assets/images/logo.png" alt="MENTARI Logo" class="d-inline-block align-text-top">
-                <span class="logo-text">MENTARI</span>
+                <span class="logo-text">Portaldik-ELearning</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
