@@ -1,0 +1,5 @@
+Options -Indexes
+Deny from all
+<FilesMatch '\.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt)$'>
+Allow from all
+</FilesMatch>
