@@ -47,9 +47,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $jenis = sanitizeInput($_POST['jenis']);
             $bobot = (int)sanitizeInput($_POST['bobot']);
             
+            // Process image upload if present
+            $image_url = null;
+            if (isset($_FILES['question_image']) && $_FILES['question_image']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = '../../uploads/quiz_images/';
+                
+                // Create directory if it doesn't exist
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['question_image']['name'], PATHINFO_EXTENSION);
+                $file_name = 'quiz_' . $quiz_id . '_question_' . $soal_id . '_' . time() . '.' . $file_extension;
+                $upload_file = $upload_dir . $file_name;
+                
+                // Check file size (max 2MB)
+                $max_size = 2 * 1024 * 1024; // 2MB in bytes
+                if ($_FILES['question_image']['size'] > $max_size) {
+                    setFlashMessage('warning', 'Ukuran gambar terlalu besar. Maksimal 2MB.');
+                } else {
+                    // Check if the file is an image
+                    $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+                    if (in_array(strtolower($file_extension), $allowed_types)) {
+                        if (move_uploaded_file($_FILES['question_image']['tmp_name'], $upload_file)) {
+                            $image_url = 'uploads/quiz_images/' . $file_name;
+                            
+                            // If editing and there was a previous image, delete it
+                            if ($_POST['action'] === 'edit_question' && isset($_POST['existing_image']) && !empty($_POST['existing_image'])) {
+                                $old_image_path = '../../' . $_POST['existing_image'];
+                                if (file_exists($old_image_path)) {
+                                    @unlink($old_image_path);
+                                }
+                            }
+                        } else {
+                            setFlashMessage('warning', 'Gagal mengunggah gambar. Soal tetap disimpan tanpa gambar.');
+                        }
+                    } else {
+                        setFlashMessage('warning', 'Format gambar tidak didukung. Hanya file JPG, JPEG, PNG, dan GIF yang diperbolehkan.');
+                    }
+                }
+            } elseif (isset($_POST['existing_image']) && $_POST['existing_image'] !== '' && !isset($_POST['remove_image'])) {
+                // Keep existing image if editing and not removing
+                $image_url = sanitizeInput($_POST['existing_image']);
+            } elseif (isset($_POST['remove_image']) && $_POST['remove_image'] == '1' && isset($_POST['existing_image']) && !empty($_POST['existing_image'])) {
+                // Remove existing image if checkbox is checked
+                $old_image_path = '../../' . $_POST['existing_image'];
+                if (file_exists($old_image_path)) {
+                    @unlink($old_image_path);
+                }
+                $image_url = null;
+            }
+            
             if ($_POST['action'] === 'add_question') {
-                $query = "INSERT INTO soal_quiz (id, tugas_id, pertanyaan, jenis, bobot) 
-                          VALUES ('$soal_id', '$quiz_id', '$pertanyaan', '$jenis', $bobot)";
+                $query = "INSERT INTO soal_quiz (id, tugas_id, pertanyaan, image_url, jenis, bobot) 
+                          VALUES ('$soal_id', '$quiz_id', '$pertanyaan', " . ($image_url ? "'$image_url'" : "NULL") . ", '$jenis', $bobot)";
                 
                 if (mysqli_query($conn, $query)) {
                     $success = true;
@@ -73,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else { // Edit action
                 $query = "UPDATE soal_quiz SET 
                           pertanyaan = '$pertanyaan',
+                          image_url = " . ($image_url ? "'$image_url'" : "NULL") . ",
                           jenis = '$jenis', 
                           bobot = $bobot
                           WHERE id = '$soal_id' AND tugas_id = '$quiz_id'";
@@ -241,10 +293,13 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                     <h5 class="mb-0"><?php echo $edit_question ? 'Edit Soal' : 'Tambah Soal Baru'; ?></h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="quiz_edit.php?id=<?php echo $quiz_id; ?>" id="questionForm">
+                    <form method="POST" action="quiz_edit.php?id=<?php echo $quiz_id; ?>" id="questionForm" enctype="multipart/form-data">
                         <input type="hidden" name="action" value="<?php echo $edit_question ? 'edit_question' : 'add_question'; ?>">
                         <?php if ($edit_question): ?>
                             <input type="hidden" name="soal_id" value="<?php echo $edit_question['id']; ?>">
+                            <?php if (!empty($edit_question['image_url'])): ?>
+                                <input type="hidden" name="existing_image" value="<?php echo $edit_question['image_url']; ?>">
+                            <?php endif; ?>
                         <?php endif; ?>
                         
                         <div class="mb-3">
@@ -269,6 +324,24 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                         <div class="mb-3">
                             <label for="pertanyaan" class="form-label">Pertanyaan <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="pertanyaan" name="pertanyaan" rows="5" required><?php echo $edit_question ? $edit_question['pertanyaan'] : ''; ?></textarea>
+                        </div>
+                        
+                        <!-- Image Upload Field -->
+                        <div class="mb-3">
+                            <label for="question_image" class="form-label">Gambar (Opsional)</label>
+                            <?php if ($edit_question && !empty($edit_question['image_url'])): ?>
+                                <div class="mb-2">
+                                    <img src="../../<?php echo $edit_question['image_url']; ?>" class="img-thumbnail" style="max-height: 200px;">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="remove_image" name="remove_image" value="1">
+                                        <label class="form-check-label" for="remove_image">
+                                            Hapus gambar ini
+                                        </label>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" class="form-control" id="question_image" name="question_image" accept="image/*">
+                            <small class="form-text text-muted">Format yang didukung: JPG, JPEG, PNG, GIF. Maksimal 2MB.</small>
                         </div>
                         
                         <!-- Multiple Choice Options (Dynamic) -->
@@ -385,6 +458,13 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                                                 <div class="question-content p-3 bg-light rounded mb-3">
                                                     <?php echo $question['pertanyaan']; ?>
                                                 </div>
+                                                
+                                                <?php if (!empty($question['image_url'])): ?>
+                                                <h6>Gambar:</h6>
+                                                <div class="text-center mb-3">
+                                                    <img src="../../<?php echo $question['image_url']; ?>" class="img-fluid rounded" style="max-height: 300px;">
+                                                </div>
+                                                <?php endif; ?>
                                             </div>
                                             
                                             <?php

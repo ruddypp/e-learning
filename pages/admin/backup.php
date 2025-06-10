@@ -213,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $backupId = $row['id'];
                     
                     // Update status in database
-                    $update_query = "UPDATE backup_data SET status = 'deleted' WHERE id = '$backupId'";
+                    $update_query = "UPDATE backup_data SET status = 'failed' WHERE id = '$backupId'";
                     mysqli_query($conn, $update_query);
                     
                     // Log the action
@@ -328,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mysqli_commit($conn);
                     
                     // 9. Log the action
-                    logActivity($_SESSION['user_id'], 'reset_database', "Admin melakukan reset database (mempertahankan data pengguna)", null);
+                    logActivity($_SESSION['user_id'], 'create_backup', "Admin melakukan reset database (mempertahankan data pengguna)", null);
                     
                     // 10. Add to system log
                     $ip = $_SERVER['REMOTE_ADDR'];
