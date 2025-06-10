@@ -123,17 +123,20 @@ $current_page = basename($_SERVER['PHP_SELF']);
             top: 56px;
             left: 0;
             width: 250px;
-            z-index: 1;
+            z-index: 1030;
             background-color: white;
             overflow-x: hidden;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s;
+            transition: all 0.3s ease;
         }
         
         .sidebar .nav-link {
             padding: 15px 20px;
             color: var(--dark-color);
             border-left: 4px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .sidebar .nav-link:hover, 
@@ -151,19 +154,19 @@ $current_page = basename($_SERVER['PHP_SELF']);
         .content {
             margin-left: 250px;
             padding: 20px;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
         }
         
         @media (max-width: 768px) {
-            .sidebar {
+            .sidebar.collapsed {
                 width: 80px;
             }
             
-            .sidebar .nav-link span {
+            .sidebar.collapsed .nav-link span {
                 display: none;
             }
             
-            .sidebar .nav-link i {
+            .sidebar.collapsed .nav-link i {
                 margin-right: 0;
                 font-size: 20px;
             }
@@ -177,6 +180,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             .sidebar {
                 width: 0;
                 padding: 0;
+                overflow-x: hidden;
             }
             
             .content {
@@ -190,6 +194,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         .sidebar-toggle {
             display: none;
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 0.5rem;
+            transition: all 0.2s;
+        }
+        
+        .sidebar-toggle:hover {
+            color: var(--dark-color);
+            transform: scale(1.1);
         }
         
         .logo-text {
@@ -272,14 +288,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container-fluid">
-            <button class="btn sidebar-toggle me-2" id="sidebarToggle">
+            <button class="btn sidebar-toggle me-2" id="sidebarToggle" type="button" aria-label="Toggle Sidebar">
                 <i class="fas fa-bars"></i>
             </button>
             <a class="navbar-brand" href="../../index.php">
                 <span class="logo-text">Portaldik-ELearning</span>
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             

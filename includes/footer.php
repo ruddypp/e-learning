@@ -24,12 +24,47 @@
     $(document).ready(function() {
         // Toggle sidebar on mobile
         $('#sidebarToggle').click(function() {
-            $('.sidebar').toggleClass('d-none d-sm-block');
-            
-            if ($('.sidebar').hasClass('d-none')) {
-                $('.content').css('margin-left', '0');
+            // Check if we're in mobile view
+            if ($(window).width() <= 576) {
+                // Toggle sidebar width between 0 and 250px
+                if ($('.sidebar').width() === 0) {
+                    $('.sidebar').css('width', '250px');
+                    $('.content').css('margin-left', '250px');
+                } else {
+                    $('.sidebar').css('width', '0');
+                    $('.content').css('margin-left', '0');
+                }
             } else {
-                $('.content').css('margin-left', '');
+                // Handle tablet/desktop toggle
+                $('.sidebar').toggleClass('collapsed');
+                
+                if ($('.sidebar').hasClass('collapsed')) {
+                    $('.sidebar').css('width', '80px');
+                    $('.content').css('margin-left', '80px');
+                } else {
+                    $('.sidebar').css('width', '250px');
+                    $('.content').css('margin-left', '250px');
+                }
+            }
+        });
+        
+        // Handle window resize events
+        $(window).resize(function() {
+            var windowWidth = $(window).width();
+            
+            // Reset styles when transitioning between breakpoints
+            if (windowWidth > 576) {
+                // Moving from mobile to tablet/desktop
+                if ($('.sidebar').width() === 0) {
+                    $('.sidebar').css('width', '');
+                    $('.content').css('margin-left', '');
+                }
+            } else {
+                // Moving from tablet/desktop to mobile
+                if (!$('.sidebar').hasClass('collapsed') && $('.sidebar').width() > 0) {
+                    $('.sidebar').css('width', '0');
+                    $('.content').css('margin-left', '0');
+                }
             }
         });
         
