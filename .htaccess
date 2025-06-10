@@ -13,15 +13,9 @@ RewriteRule ^(.*)/$ /$1 [L,R=301]
 # Redirect to index.php if trying to access protected directories directly
 RewriteRule ^pages/?$ /elearning/index.php [R=301,L]
 
-# Check for role-specific access
-RewriteRule ^pages/admin/(.*) - [F,L]
-RewriteRule ^pages/guru/(.*) - [F,L]
-RewriteRule ^pages/siswa/(.*) - [F,L]
-RewriteRule ^pages/kepsek/(.*) - [F,L]
-
-# But allow access through proper PHP session auth checks
+# Check for role-specific access but allow PHP to handle authentication
+# Disable direct folder access but let PHP scripts handle authentication
 RewriteCond %{REQUEST_URI} ^/elearning/pages/
-RewriteCond %{REMOTE_ADDR} ^127\.0\.0\.1$
 RewriteRule .* - [L]
 
 # Increase PHP memory limit and execution time for file uploads

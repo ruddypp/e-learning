@@ -12,9 +12,9 @@ $activity_type = isset($_GET['activity_type']) ? sanitizeInput($_GET['activity_t
 $date_from = isset($_GET['date_from']) ? sanitizeInput($_GET['date_from']) : '';
 $date_to = isset($_GET['date_to']) ? sanitizeInput($_GET['date_to']) : '';
 
-// Default to showing the latest 7 days if no date is specified
+// Default to showing the latest 30 days if no date is specified
 if (empty($date_from)) {
-    $date_from = date('Y-m-d', strtotime('-7 days'));
+    $date_from = date('Y-m-d', strtotime('-30 days'));
 }
 if (empty($date_to)) {
     $date_to = date('Y-m-d');
@@ -51,13 +51,23 @@ $result = mysqli_query($conn, $query);
 $query_activity_types = "SELECT DISTINCT tipe_aktivitas FROM laporan_aktivitas ORDER BY tipe_aktivitas";
 $result_activity_types = mysqli_query($conn, $query_activity_types);
 
+// Check if there are any activities in the database
+$check_activities_query = "SELECT COUNT(*) as activity_count FROM laporan_aktivitas";
+$check_activities_result = mysqli_query($conn, $check_activities_query);
+$activity_count = 0;
+if ($check_activities_result) {
+    $activity_count_row = mysqli_fetch_assoc($check_activities_result);
+    $activity_count = $activity_count_row['activity_count'];
+}
+
 // Get user activity summary
 $query_summary = "SELECT 
                   DATE(waktu) as tanggal,
                   COUNT(CASE WHEN tipe_aktivitas = 'login' THEN 1 END) as login_count,
                   COUNT(CASE WHEN tipe_aktivitas = 'view_materi' THEN 1 END) as view_materi_count,
                   COUNT(CASE WHEN tipe_aktivitas = 'submit_tugas' THEN 1 END) as submit_tugas_count,
-                  COUNT(CASE WHEN tipe_aktivitas = 'nilai_tugas' THEN 1 END) as nilai_tugas_count
+                  COUNT(CASE WHEN tipe_aktivitas = 'nilai_tugas' THEN 1 END) as nilai_tugas_count,
+                  COUNT(*) as total_count
                 FROM laporan_aktivitas
                 WHERE DATE(waktu) BETWEEN '$date_from' AND '$date_to'
                 GROUP BY DATE(waktu)
@@ -78,6 +88,41 @@ $result_top_users = mysqli_query($conn, $query_top_users);
 // Include header
 include_once '../../includes/header.php';
 ?>
+
+<!-- Include Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<!-- Error handling script -->
+<script>
+window.addEventListener('error', function(e) {
+    console.error('JavaScript error detected:', e.message);
+    
+    // Create a visible error message for debugging
+    var errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.innerHTML = '<strong>JavaScript Error:</strong> ' + e.message + 
+                         '<br><small>This message only appears during development.</small>';
+    
+    // Insert at the top of the page
+    document.body.insertBefore(errorDiv, document.body.firstChild);
+});
+</script>
+
+<!-- Error handling script -->
+<script>
+window.addEventListener('error', function(e) {
+    console.error('JavaScript error detected:', e.message);
+    
+    // Create a visible error message for debugging
+    var errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.innerHTML = '<strong>JavaScript Error:</strong> ' + e.message + 
+                         '<br><small>This message only appears during development.</small>';
+    
+    // Insert at the top of the page
+    document.body.insertBefore(errorDiv, document.body.firstChild);
+});
+</script>
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -144,7 +189,26 @@ include_once '../../includes/header.php';
                     <h5 class="mb-0">Ringkasan Aktivitas Harian</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="activityChart" height="250"></canvas>
+                    <?php 
+                    // Check if we have activity data
+                    $has_activity_data = mysqli_num_rows($result_summary) > 0;
+                    
+                    if ($has_activity_data):
+                    ?>
+                        <canvas id="activityChart" height="250"></canvas>
+                    <?php else: ?>
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <?php if ($activity_count > 0): ?>
+                                Tidak ada data aktivitas untuk periode yang dipilih. Coba ubah filter tanggal.
+                            <?php else: ?>
+                                Belum ada data aktivitas yang tercatat dalam sistem. Data akan muncul setelah pengguna melakukan aktivitas.
+                            <?php endif; ?>
+                        </div>
+                        
+                        <!-- Show demo chart when no data available -->
+                        <canvas id="demoChart" height="250"></canvas>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -367,90 +431,143 @@ function downloadCSV(csv, filename) {
     document.body.removeChild(downloadLink);
 }
 
-// Create chart from activity summary data
+// Simple chart initialization
 document.addEventListener('DOMContentLoaded', function() {
-    var ctx = document.getElementById('activityChart').getContext('2d');
-    
-    // Extract data from PHP
-    var activityData = [
-        <?php 
-        $dates = [];
-        $login_counts = [];
-        $view_materi_counts = [];
-        $submit_tugas_counts = [];
-        $nilai_tugas_counts = [];
+    // Initialize real data chart if element exists
+    var chartElement = document.getElementById('activityChart');
+    if (chartElement) {
+        var ctx = chartElement.getContext('2d');
         
+        <?php if ($has_activity_data): ?>
+        // Extract and prepare data
+        <?php
         mysqli_data_seek($result_summary, 0);
+        $dates = [];
+        $logins = [];
+        $views = [];
+        $submits = [];
+        $grading = [];
+        
         while ($row = mysqli_fetch_assoc($result_summary)) {
-            $dates[] = "'" . formatDate($row['tanggal']) . "'";
-            $login_counts[] = $row['login_count'];
-            $view_materi_counts[] = $row['view_materi_count'];
-            $submit_tugas_counts[] = $row['submit_tugas_count'];
-            $nilai_tugas_counts[] = $row['nilai_tugas_count'];
+            $dates[] = formatDate($row['tanggal']);
+            $logins[] = (int)$row['login_count'];
+            $views[] = (int)$row['view_materi_count'];
+            $submits[] = (int)$row['submit_tugas_count'];
+            $grading[] = (int)$row['nilai_tugas_count'];
         }
+        
+        // Reverse arrays to get chronological order
+        $dates = array_reverse($dates);
+        $logins = array_reverse($logins);
+        $views = array_reverse($views);
+        $submits = array_reverse($submits);
+        $grading = array_reverse($grading);
         ?>
-    ];
-    
-    var activityChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [<?php echo implode(',', array_reverse($dates)); ?>],
-            datasets: [
-                {
-                    label: 'Login',
-                    data: [<?php echo implode(',', array_reverse($login_counts)); ?>],
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Lihat Materi',
-                    data: [<?php echo implode(',', array_reverse($view_materi_counts)); ?>],
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Submit Tugas',
-                    data: [<?php echo implode(',', array_reverse($submit_tugas_counts)); ?>],
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Penilaian',
-                    data: [<?php echo implode(',', array_reverse($nilai_tugas_counts)); ?>],
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                    tension: 0.4,
-                    fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                title: {
-                    display: true,
-                    text: 'Aktivitas Pengguna per Hari'
-                }
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($dates); ?>,
+                datasets: [
+                    {
+                        label: 'Login',
+                        data: <?php echo json_encode($logins); ?>,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Lihat Materi',
+                        data: <?php echo json_encode($views); ?>,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Submit Tugas',
+                        data: <?php echo json_encode($submits); ?>,
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Penilaian',
+                        data: <?php echo json_encode($grading); ?>,
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        fill: true
+                    }
+                ]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Aktivitas Pengguna per Hari'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+        <?php endif; ?>
+    }
+    
+    // Initialize demo chart if element exists
+    var demoElement = document.getElementById('demoChart');
+    if (demoElement) {
+        var demoCtx = demoElement.getContext('2d');
+        
+        new Chart(demoCtx, {
+            type: 'line',
+            data: {
+                labels: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'],
+                datasets: [
+                    {
+                        label: 'Login (Demo)',
+                        data: [12, 19, 8, 15, 10, 5, 14],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Lihat Materi (Demo)',
+                        data: [8, 15, 20, 10, 7, 4, 9],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Contoh Data Aktivitas (Demo)'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 });
 </script>
 

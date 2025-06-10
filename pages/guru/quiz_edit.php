@@ -250,9 +250,7 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                         <div class="mb-3">
                             <label for="jenis" class="form-label">Jenis Soal <span class="text-danger">*</span></label>
                             <select class="form-select" id="jenis" name="jenis" required>
-                                <option value="pilihan_ganda" <?php echo ($edit_question && $edit_question['jenis'] === 'pilihan_ganda') ? 'selected' : ''; ?>>Pilihan Ganda</option>
-                                <option value="essay" <?php echo ($edit_question && $edit_question['jenis'] === 'essay') ? 'selected' : ''; ?>>Essay</option>
-                                <option value="coding" <?php echo ($edit_question && $edit_question['jenis'] === 'coding') ? 'selected' : ''; ?>>Coding</option>
+                                <option value="pilihan_ganda" selected>Pilihan Ganda</option>
                             </select>
                         </div>
                         
@@ -271,9 +269,6 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                         <div class="mb-3">
                             <label for="pertanyaan" class="form-label">Pertanyaan <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="pertanyaan" name="pertanyaan" rows="5" required><?php echo $edit_question ? $edit_question['pertanyaan'] : ''; ?></textarea>
-                            <small class="form-text text-muted">
-                                Untuk soal coding, Anda dapat menambahkan kode template yang akan ditampilkan kepada siswa.
-                            </small>
                         </div>
                         
                         <!-- Multiple Choice Options (Dynamic) -->
@@ -376,21 +371,6 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                                                     <?php echo limitText(strip_tags($question['pertanyaan']), 70); ?>
                                                 </div>
                                                 <div class="d-flex align-items-center ms-3">
-                                                    <span class="badge bg-info me-2">
-                                                        <?php 
-                                                        switch ($question['jenis']) {
-                                                            case 'pilihan_ganda':
-                                                                echo 'Pilihan Ganda';
-                                                                break;
-                                                            case 'essay':
-                                                                echo 'Essay';
-                                                                break;
-                                                            case 'coding':
-                                                                echo 'Coding';
-                                                                break;
-                                                        }
-                                                        ?>
-                                                    </span>
                                                     <span class="badge bg-warning">Bobot: <?php echo $question['bobot']; ?></span>
                                                 </div>
                                             </div>
@@ -407,25 +387,23 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
                                                 </div>
                                             </div>
                                             
-                                            <?php if ($question['jenis'] === 'pilihan_ganda'): ?>
-                                                <?php
-                                                $options_query = "SELECT * FROM pilihan_jawaban WHERE soal_id = '{$question['id']}' ORDER BY id ASC";
-                                                $options_result = mysqli_query($conn, $options_query);
-                                                ?>
-                                                <div class="mb-3">
-                                                    <h6>Pilihan Jawaban:</h6>
-                                                    <ul class="list-group">
-                                                        <?php while ($option = mysqli_fetch_assoc($options_result)): ?>
-                                                            <li class="list-group-item <?php echo $option['is_benar'] ? 'list-group-item-success' : ''; ?>">
-                                                                <?php echo $option['teks']; ?>
-                                                                <?php if ($option['is_benar']): ?>
-                                                                    <span class="badge bg-success float-end">Jawaban Benar</span>
-                                                                <?php endif; ?>
-                                                            </li>
-                                                        <?php endwhile; ?>
-                                                    </ul>
-                                                </div>
-                                            <?php endif; ?>
+                                            <?php
+                                            $options_query = "SELECT * FROM pilihan_jawaban WHERE soal_id = '{$question['id']}' ORDER BY id ASC";
+                                            $options_result = mysqli_query($conn, $options_query);
+                                            ?>
+                                            <div class="mb-3">
+                                                <h6>Pilihan Jawaban:</h6>
+                                                <ul class="list-group">
+                                                    <?php while ($option = mysqli_fetch_assoc($options_result)): ?>
+                                                        <li class="list-group-item <?php echo $option['is_benar'] ? 'list-group-item-success' : ''; ?>">
+                                                            <?php echo $option['teks']; ?>
+                                                            <?php if ($option['is_benar']): ?>
+                                                                <span class="badge bg-success float-end">Jawaban Benar</span>
+                                                            <?php endif; ?>
+                                                        </li>
+                                                    <?php endwhile; ?>
+                                                </ul>
+                                            </div>
                                             
                                             <div class="d-flex justify-content-end">
                                                 <a href="quiz_edit.php?id=<?php echo $quiz_id; ?>&action=edit_question&soal_id=<?php echo $question['id']; ?>" 
@@ -486,14 +464,8 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
         const addOptionBtn = document.getElementById('addOption');
         const optionCountInput = document.getElementById('optionCount');
         
-        // Show/hide multiple choice options based on question type
-        jenisSelect.addEventListener('change', function() {
-            if (this.value === 'pilihan_ganda') {
-                multipleChoiceOptions.classList.remove('d-none');
-            } else {
-                multipleChoiceOptions.classList.add('d-none');
-            }
-        });
+        // Always show multiple choice options since it's the only option now
+        multipleChoiceOptions.classList.remove('d-none');
         
         // Add new option
         addOptionBtn.addEventListener('click', function() {
@@ -556,14 +528,12 @@ function processMultipleChoiceOptions($soal_id, $post_data) {
         
         // Form validation before submit
         document.getElementById('questionForm').addEventListener('submit', function(e) {
-            if (jenisSelect.value === 'pilihan_ganda') {
-                const checkedRadio = document.querySelector('input[name="correct_option"]:checked');
-                
-                if (!checkedRadio) {
-                    e.preventDefault();
-                    alert('Silakan pilih jawaban yang benar untuk soal pilihan ganda.');
-                    return;
-                }
+            const checkedRadio = document.querySelector('input[name="correct_option"]:checked');
+            
+            if (!checkedRadio) {
+                e.preventDefault();
+                alert('Silakan pilih jawaban yang benar untuk soal pilihan ganda.');
+                return;
             }
         });
     });

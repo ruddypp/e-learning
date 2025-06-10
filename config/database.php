@@ -20,4 +20,3 @@ if (!$conn) {
 
 // Set character set
 mysqli_set_charset($conn, "utf8");
-?> 

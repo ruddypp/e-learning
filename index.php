@@ -1,4 +1,8 @@
 <?php
+// Untuk debugging - tampilkan error
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Set flag for login page
 $is_login_page = true;
 

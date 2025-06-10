@@ -236,6 +236,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    // Reset Database (keeping users)
+    else if (isset($_POST['action']) && $_POST['action'] === 'reset_database') {
+        try {
+            // First, create a backup before resetting
+            $timestamp = date('Y-m-d_H-i-s');
+            $backupFile = "$backupDir/pre_reset_backup_$timestamp.sql";
+            $deskripsi = "Backup otomatis sebelum reset database";
+            
+            // Get database configuration
+            $host = DB_HOST;
+            $user = DB_USERNAME;
+            $pass = DB_PASSWORD;
+            $name = DB_NAME;
+            
+            // Find mysqldump path
+            $mysqldump = 'C:\\xampp\\mysql\\bin\\mysqldump';
+            if (!file_exists($mysqldump)) {
+                $possible_paths = [
+                    'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+                    'C:\\wamp\\bin\\mysql\\mysql5.7.26\\bin\\mysqldump.exe',
+                    '/usr/bin/mysqldump',
+                    '/usr/local/bin/mysqldump',
+                    'mysqldump'
+                ];
+                
+                foreach ($possible_paths as $path) {
+                    if (file_exists($path)) {
+                        $mysqldump = $path;
+                        break;
+                    }
+                }
+            }
+            
+            // Create backup command
+            $command = "\"$mysqldump\" --host=$host --user=$user";
+            if (!empty($pass)) {
+                $command .= " --password=$pass";
+            }
+            $command .= " $name > \"$backupFile\"";
+            
+            // Execute backup command
+            $output = [];
+            exec($command, $output, $return_var);
+            
+            if ($return_var === 0 && file_exists($backupFile) && filesize($backupFile) > 0) {
+                // Record backup in database
+                $backupId = generateUniqueId('BKP');
+                $fileSize = filesize($backupFile);
+                $query = "INSERT INTO backup_data (id, nama_file, ukuran_file, dibuat_oleh, deskripsi, status) 
+                          VALUES ('$backupId', 'pre_reset_backup_$timestamp.sql', $fileSize, '{$_SESSION['user_id']}', '$deskripsi', 'success')";
+                mysqli_query($conn, $query);
+                
+                // Now perform the reset operation
+                // 1. First, get tables that need to be preserved
+                $preserved_tables = ['pengguna', 'pengguna_metadata', 'roles', 'log_sistem', 'backup_data'];
+                
+                // 2. Get all tables in the database
+                $tables_query = "SHOW TABLES";
+                $tables_result = mysqli_query($conn, $tables_query);
+                $all_tables = [];
+                
+                while ($row = mysqli_fetch_row($tables_result)) {
+                    $all_tables[] = $row[0];
+                }
+                
+                // 3. Identify tables to reset (all except preserved ones)
+                $tables_to_reset = array_diff($all_tables, $preserved_tables);
+                
+                // 4. Start a transaction
+                mysqli_begin_transaction($conn);
+                
+                $reset_success = true;
+                
+                try {
+                    // 5. Disable foreign key checks temporarily
+                    mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 0");
+                    
+                    // 6. Truncate each table that needs to be reset
+                    foreach ($tables_to_reset as $table) {
+                        $truncate_query = "TRUNCATE TABLE `$table`";
+                        if (!mysqli_query($conn, $truncate_query)) {
+                            throw new Exception("Failed to truncate table $table: " . mysqli_error($conn));
+                        }
+                    }
+                    
+                    // 7. Re-enable foreign key checks
+                    mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 1");
+                    
+                    // 8. Commit the transaction
+                    mysqli_commit($conn);
+                    
+                    // 9. Log the action
+                    logActivity($_SESSION['user_id'], 'reset_database', "Admin melakukan reset database (mempertahankan data pengguna)", null);
+                    
+                    // 10. Add to system log
+                    $ip = $_SERVER['REMOTE_ADDR'];
+                    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                    $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                 VALUES ('{$_SESSION['user_id']}', 'Reset Database', 'Reset database dengan mempertahankan data pengguna', '$ip', '$user_agent')";
+                    mysqli_query($conn, $log_query);
+                    
+                    setFlashMessage('success', 'Database berhasil direset. Semua data telah dihapus kecuali data pengguna.');
+                } catch (Exception $e) {
+                    // Rollback on error
+                    mysqli_rollback($conn);
+                    $reset_success = false;
+                    setFlashMessage('error', 'Gagal mereset database: ' . $e->getMessage());
+                }
+                
+                if (!$reset_success) {
+                    // If reset failed, update backup status
+                    $update_query = "UPDATE backup_data SET deskripsi = CONCAT(deskripsi, ' (Reset gagal)') WHERE id = '$backupId'";
+                    mysqli_query($conn, $update_query);
+                }
+            } else {
+                setFlashMessage('error', 'Gagal membuat backup sebelum reset database.');
+            }
+        } catch (Exception $e) {
+            setFlashMessage('error', 'Error: ' . $e->getMessage());
+        }
+    }
+    
     // Redirect to the same page to prevent form resubmission
     header('Location: backup.php');
     exit;
@@ -331,6 +453,17 @@ include_once '../../includes/header.php';
                         <i class="fas fa-exclamation-triangle me-2"></i>
                         <strong>Perhatian:</strong> Restore database akan menimpa semua data saat ini dengan data dari backup yang dipilih.
                     </div>
+                    
+                    <hr>
+                    
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Reset Database:</strong> Opsi ini akan menghapus seluruh data kecuali data pengguna.
+                    </div>
+                    
+                    <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#resetDatabaseModal">
+                        <i class="fas fa-trash-alt me-2"></i> Reset Database (Pertahankan Pengguna)
+                    </button>
                 </div>
             </div>
         </div>
@@ -471,6 +604,49 @@ include_once '../../includes/header.php';
                     <input type="hidden" name="file" id="deleteFileInput">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger">Ya, Hapus Backup</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Database Confirmation Modal -->
+<div class="modal fade" id="resetDatabaseModal" tabindex="-1" aria-labelledby="resetDatabaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="resetDatabaseModalLabel">Konfirmasi Reset Database</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>PERINGATAN!</strong> Tindakan ini akan menghapus semua data dalam database KECUALI data pengguna.
+                </div>
+                <p>Data berikut akan dihapus:</p>
+                <ul>
+                    <li>Semua kelas</li>
+                    <li>Semua materi</li>
+                    <li>Semua kuis dan hasil kuis</li>
+                    <li>Semua tugas dan pengumpulan tugas</li>
+                    <li>Semua nilai</li>
+                    <li>Dan data lainnya</li>
+                </ul>
+                <p>Data berikut akan <strong>dipertahankan</strong>:</p>
+                <ul>
+                    <li>Akun pengguna (admin, guru, siswa, dll)</li>
+                    <li>Peran pengguna</li>
+                    <li>Log sistem</li>
+                    <li>Riwayat backup</li>
+                </ul>
+                <p class="text-danger fw-bold">Tindakan ini tidak dapat dibatalkan!</p>
+                <p>Backup otomatis akan dibuat sebelum reset dilakukan.</p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="backup.php">
+                    <input type="hidden" name="action" value="reset_database">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">Ya, Reset Database</button>
                 </form>
             </div>
         </div>

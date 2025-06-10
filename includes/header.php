@@ -291,9 +291,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <?php echo isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'User'; ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="../../pages/profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <?php
+                            // Detect if we're in localhost or production
+                            $base_url = (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false) 
+                                      ? '' 
+                                      : '/elearning';
+                            ?>
+                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>/pages/profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>/logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -304,103 +310,112 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="pt-4">
-            <?php if (hasRole('admin')): ?>
-                <a href="../../pages/admin/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
+            <?php 
+            // Determine base path based on current file location
+            $base_path = '';
+            if (strpos($_SERVER['PHP_SELF'], '/pages/profile.php') !== false) {
+                $base_path = '../';
+            } else {
+                $base_path = '../../';
+            }
+            
+            if (hasRole('admin')): ?>
+                <a href="<?php echo $base_path; ?>pages/admin/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="../../pages/admin/users.php" class="nav-link <?php echo $current_page == 'users.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/users.php" class="nav-link <?php echo $current_page == 'users.php' ? 'active' : ''; ?>">
                     <i class="fas fa-users"></i>
                     <span>Kelola Pengguna</span>
                 </a>
-                <a href="../../pages/admin/classes.php" class="nav-link <?php echo $current_page == 'classes.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/classes.php" class="nav-link <?php echo $current_page == 'classes.php' ? 'active' : ''; ?>">
                     <i class="fas fa-school"></i>
                     <span>Kelola Kelas</span>
                 </a>
-                <a href="../../pages/admin/verify.php" class="nav-link <?php echo $current_page == 'verify.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/verify.php" class="nav-link <?php echo $current_page == 'verify.php' ? 'active' : ''; ?>">
                     <i class="fas fa-check-circle"></i>
                     <span>Verifikasi Data</span>
                 </a>
-                <a href="../../pages/admin/activity_log.php" class="nav-link <?php echo $current_page == 'activity_log.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/activity_log.php" class="nav-link <?php echo $current_page == 'activity_log.php' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line"></i>
                     <span>Aktivitas Pengguna</span>
                 </a>
-                <a href="../../pages/admin/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Kuesioner</span>
                 </a>
-                <a href="../../pages/admin/backup.php" class="nav-link <?php echo $current_page == 'backup.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/backup.php" class="nav-link <?php echo $current_page == 'backup.php' ? 'active' : ''; ?>">
                     <i class="fas fa-database"></i>
                     <span>Backup & Maintenance</span>
                 </a>
-                <a href="../../pages/admin/logs.php" class="nav-link <?php echo $current_page == 'logs.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/admin/logs.php" class="nav-link <?php echo $current_page == 'logs.php' ? 'active' : ''; ?>">
                     <i class="fas fa-history"></i>
                     <span>Log Sistem</span>
                 </a>
             <?php elseif (hasRole('guru')): ?>
-                <a href="../../pages/guru/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/guru/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="../../pages/guru/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/guru/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
                     <i class="fas fa-book"></i>
                     <span>Materi Coding</span>
                 </a>
-                <a href="../../pages/guru/quizzes.php" class="nav-link <?php echo $current_page == 'quizzes.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/guru/quizzes.php" class="nav-link <?php echo $current_page == 'quizzes.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tasks"></i>
                     <span>Quiz & Tugas</span>
                 </a>
-                <a href="../../pages/guru/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/guru/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
                     <i class="fas fa-star"></i>
                     <span>Nilai Siswa</span>
                 </a>
-                <a href="../../pages/guru/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/guru/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Kuesioner</span>
                 </a>
             <?php elseif (hasRole('siswa')): ?>
-                <a href="../../pages/siswa/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/siswa/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="../../pages/siswa/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/siswa/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
                     <i class="fas fa-book"></i>
                     <span>Materi Coding</span>
                 </a>
-                <a href="../../pages/siswa/quizzes.php" class="nav-link <?php echo $current_page == 'quizzes.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/siswa/quizzes.php" class="nav-link <?php echo $current_page == 'quizzes.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tasks"></i>
                     <span>Quiz & Tugas</span>
                 </a>
-                <a href="../../pages/siswa/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/siswa/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
                     <i class="fas fa-star"></i>
                     <span>Nilai Saya</span>
                 </a>
-                <a href="../../pages/siswa/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/siswa/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Kuesioner</span>
                 </a>
             <?php elseif (hasRole('kepsek')): ?>
-                <a href="../../pages/kepsek/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/dashboard.php" class="nav-link <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="../../pages/kepsek/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/materials.php" class="nav-link <?php echo $current_page == 'materials.php' ? 'active' : ''; ?>">
                     <i class="fas fa-book"></i>
                     <span>Materi Pembelajaran</span>
                 </a>
-                <a href="../../pages/kepsek/classes.php" class="nav-link <?php echo $current_page == 'classes.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/classes.php" class="nav-link <?php echo $current_page == 'classes.php' ? 'active' : ''; ?>">
                     <i class="fas fa-school"></i>
                     <span>Kelas</span>
                 </a>
-                <a href="../../pages/kepsek/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/grades.php" class="nav-link <?php echo $current_page == 'grades.php' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-bar"></i>
                     <span>Hasil Belajar</span>
                 </a>
-                <a href="../../pages/kepsek/activities.php" class="nav-link <?php echo $current_page == 'activities.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/activities.php" class="nav-link <?php echo $current_page == 'activities.php' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line"></i>
                     <span>Aktivitas Pembelajaran</span>
                 </a>
-                <a href="../../pages/kepsek/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>pages/kepsek/questionnaires.php" class="nav-link <?php echo $current_page == 'questionnaires.php' ? 'active' : ''; ?>">
                     <i class="fas fa-clipboard-list"></i>
                     <span>Hasil Kuesioner</span>
                 </a>
