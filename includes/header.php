@@ -348,10 +348,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <i class="fas fa-school"></i>
                     <span>Kelola Kelas</span>
                 </a>
-                <a href="<?php echo $base_path; ?>pages/admin/verify.php" class="nav-link <?php echo $current_page == 'verify.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Verifikasi Data</span>
-                </a>
                 <a href="<?php echo $base_path; ?>pages/admin/activity_log.php" class="nav-link <?php echo $current_page == 'activity_log.php' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line"></i>
                     <span>Aktivitas Pengguna</span>

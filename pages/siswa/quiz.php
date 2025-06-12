@@ -181,15 +181,14 @@ if ($has_attempted) {
 // Include header
 include_once '../../includes/header.php';
 
-// Helper function to auto-grade multiple choice questions
+// Helper function to auto-grade all questions
 function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
-    // Get all multiple choice answers
-    $query = "SELECT js.id, js.soal_id, js.pilihan_id, sq.bobot, pj.is_benar
+    // Get all answers (both multiple choice and other types)
+    $query = "SELECT js.id, js.soal_id, js.pilihan_id, js.jawaban, sq.jenis, sq.bobot, pj.is_benar
              FROM jawaban_siswa js
              JOIN soal_quiz sq ON js.soal_id = sq.id
              LEFT JOIN pilihan_jawaban pj ON js.pilihan_id = pj.id
-             WHERE js.nilai_tugas_id = '$nilai_tugas_id'
-             AND sq.jenis = 'pilihan_ganda'";
+             WHERE js.nilai_tugas_id = '$nilai_tugas_id'";
     $result = $conn->query($query);
     
     $total_bobot = 0;
@@ -198,8 +197,20 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
     while ($answer = $result->fetch_assoc()) {
         $jawaban_id = $answer['id'];
         $bobot = $answer['bobot'];
-        $is_benar = $answer['is_benar'] ?? 0;
-        $nilai_per_soal = $is_benar ? $bobot : 0;
+        $jenis = $answer['jenis'];
+        $nilai_per_soal = 0;
+        
+        // For multiple choice questions, we can auto-grade
+        if ($jenis === 'pilihan_ganda') {
+            $is_benar = $answer['is_benar'] ?? 0;
+            $nilai_per_soal = $is_benar ? $bobot : 0;
+        } 
+        // For essay and coding questions, give full points if they provided an answer
+        else {
+            if (!empty($answer['jawaban'])) {
+                $nilai_per_soal = $bobot; // Give full points for non-empty answers
+            }
+        }
         
         // Update nilai_per_soal in jawaban_siswa
         $update = "UPDATE jawaban_siswa SET nilai_per_soal = $nilai_per_soal WHERE id = '$jawaban_id'";
@@ -209,12 +220,16 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
         $earned_bobot += $nilai_per_soal;
     }
     
-    // Calculate total quiz score (only from multiple choice for now)
+    // Calculate total quiz score for all questions
     if ($total_bobot > 0) {
         $nilai = round(($earned_bobot / $total_bobot) * 100);
         
-        // Update nilai in nilai_tugas (only partial - teacher will complete grading)
-        $update_nilai = "UPDATE nilai_tugas SET nilai = $nilai WHERE id = '$nilai_tugas_id'";
+        // Update nilai in nilai_tugas and mark as automatically graded
+        $update_nilai = "UPDATE nilai_tugas SET 
+                        nilai = $nilai, 
+                        tanggal_dinilai = CURDATE(),
+                        dinilai_oleh = 'AUTO' 
+                        WHERE id = '$nilai_tugas_id'";
         $conn->query($update_nilai);
     }
 }
@@ -247,7 +262,7 @@ function autoGradeMultipleChoice($nilai_tugas_id, $conn) {
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
             Anda telah mengerjakan quiz ini pada tanggal <?php echo formatDate($attempt['tanggal_pengumpulan']); ?>.
-            Quiz sedang dinilai oleh guru.
+            <a href="quiz_result.php?id=<?php echo $quiz_id; ?>" class="alert-link">Lihat hasil</a>.
         </div>
     <?php endif; ?>
     

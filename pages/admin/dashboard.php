@@ -162,7 +162,7 @@ include_once '../../includes/header.php';
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Aktivitas Terbaru</h5>
-                    <a href="logs.php" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                    <a href="logs.php" class="btn btn-sm btn-info text-white">Lihat Semua</a>
                 </div>
                 <div class="card-body">
                     <?php if (mysqli_num_rows($result_activities) > 0): ?>
@@ -286,7 +286,7 @@ include_once '../../includes/header.php';
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Pengguna Terbaru</h5>
-                    <a href="users.php" class="btn btn-sm btn-outline-primary">Kelola Pengguna</a>
+                    <a href="users.php" class="btn btn-sm btn-info text-white">Kelola Pengguna</a>
                 </div>
                 <div class="card-body">
                     <?php if (mysqli_num_rows($result_recent_users) > 0): ?>

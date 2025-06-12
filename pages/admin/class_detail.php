@@ -69,6 +69,10 @@ $query_questionnaires = "SELECT k.id, k.judul, k.tanggal_dibuat, p.nama as pembu
                         ORDER BY k.tanggal_dibuat DESC";
 $result_questionnaires = mysqli_query($conn, $query_questionnaires);
 
+// Get teachers for dropdown
+$query_teachers = "SELECT id, nama FROM pengguna WHERE tipe_pengguna = 'guru' AND status = 'aktif' ORDER BY nama ASC";
+$result_teachers = mysqli_query($conn, $query_teachers);
+
 // Include header
 include_once '../../includes/header.php';
 ?>
@@ -186,9 +190,9 @@ include_once '../../includes/header.php';
                 <div class="card-header bg-light">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Daftar Siswa</h5>
-                        <a href="manage_users.php?role=siswa&class=<?php echo $class_id; ?>" class="btn btn-sm btn-primary">
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addStudentModal">
                             <i class="fas fa-user-plus me-2"></i> Tambah Siswa
-                        </a>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -216,9 +220,14 @@ include_once '../../includes/header.php';
                                                 <?php echo $student['last_login'] ? formatDate($student['last_login'], true) : '<span class="text-muted">Belum pernah login</span>'; ?>
                                             </td>
                                             <td>
-                                                <a href="user_detail.php?id=<?php echo $student['id']; ?>" class="btn btn-sm btn-info">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
+                                                <button type="button" class="btn btn-sm btn-info edit-student-btn" 
+                                                        data-id="<?php echo $student['id']; ?>"
+                                                        data-nama="<?php echo $student['nama']; ?>"
+                                                        data-nisn="<?php echo $student['nisn']; ?>"
+                                                        data-email="<?php echo $student['email']; ?>"
+                                                        data-bs-toggle="modal" data-bs-target="#editStudentModal">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
@@ -267,9 +276,15 @@ include_once '../../includes/header.php';
                                                 <span class="badge bg-info"><?php echo $material['jumlah_tugas']; ?></span>
                                             </td>
                                             <td>
-                                                <a href="../siswa/material_detail.php?id=<?php echo $material['id']; ?>" class="btn btn-sm btn-info">
+                                                <button type="button" class="btn btn-sm btn-info view-material-btn" 
+                                                        data-id="<?php echo $material['id']; ?>"
+                                                        data-judul="<?php echo $material['judul']; ?>"
+                                                        data-tingkat="<?php echo $material['tingkat']; ?>"
+                                                        data-pembuat="<?php echo $material['pembuat_nama']; ?>"
+                                                        data-tanggal="<?php echo formatDate($material['tanggal_dibuat']); ?>"
+                                                        data-bs-toggle="modal" data-bs-target="#viewMaterialModal">
                                                     <i class="fas fa-eye"></i>
-                                                </a>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
@@ -333,9 +348,17 @@ include_once '../../includes/header.php';
                                                 <span class="badge bg-info"><?php echo $assignment['jumlah_pengumpulan']; ?></span>
                                             </td>
                                             <td>
-                                                <a href="../guru/assignment_detail.php?id=<?php echo $assignment['id']; ?>" class="btn btn-sm btn-info">
+                                                <button type="button" class="btn btn-sm btn-info view-assignment-btn" 
+                                                        data-id="<?php echo $assignment['id']; ?>"
+                                                        data-judul="<?php echo $assignment['judul']; ?>"
+                                                        data-materi="<?php echo $assignment['materi_judul']; ?>"
+                                                        data-pembuat="<?php echo $assignment['pembuat_nama']; ?>"
+                                                        data-tanggal="<?php echo formatDate($assignment['tanggal_dibuat']); ?>"
+                                                        data-deadline="<?php echo $assignment['tanggal_deadline'] ? formatDate($assignment['tanggal_deadline']) : 'Tidak ada'; ?>"
+                                                        data-pengumpulan="<?php echo $assignment['jumlah_pengumpulan']; ?>"
+                                                        data-bs-toggle="modal" data-bs-target="#viewAssignmentModal">
                                                     <i class="fas fa-eye"></i>
-                                                </a>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
@@ -386,9 +409,16 @@ include_once '../../includes/header.php';
                                                 <span class="badge bg-success"><?php echo $questionnaire['jumlah_responden']; ?></span>
                                             </td>
                                             <td>
-                                                <a href="../guru/questionnaire_results.php?id=<?php echo $questionnaire['id']; ?>" class="btn btn-sm btn-info">
+                                                <button type="button" class="btn btn-sm btn-info view-questionnaire-btn" 
+                                                        data-id="<?php echo $questionnaire['id']; ?>"
+                                                        data-judul="<?php echo $questionnaire['judul']; ?>"
+                                                        data-pembuat="<?php echo $questionnaire['pembuat_nama']; ?>"
+                                                        data-tanggal="<?php echo formatDate($questionnaire['tanggal_dibuat']); ?>"
+                                                        data-pertanyaan="<?php echo $questionnaire['jumlah_pertanyaan']; ?>"
+                                                        data-responden="<?php echo $questionnaire['jumlah_responden']; ?>"
+                                                        data-bs-toggle="modal" data-bs-target="#viewQuestionnaireModal">
                                                     <i class="fas fa-chart-bar"></i>
-                                                </a>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>
@@ -434,14 +464,17 @@ include_once '../../includes/header.php';
                         <select class="form-select" id="wali_kelas" name="wali_kelas">
                             <option value="">-- Pilih Wali Kelas --</option>
                             <?php 
-                            // Reset pointer to beginning of result set
-                            mysqli_data_seek($result_teachers, 0);
-                            while ($teacher = mysqli_fetch_assoc($result_teachers)):
+                            // Reset the result pointer to be safe
+                            if ($result_teachers) {
+                                mysqli_data_seek($result_teachers, 0);
+                                while ($teacher = mysqli_fetch_assoc($result_teachers)):
+                                ?>
+                                    <option value="<?php echo $teacher['id']; ?>" <?php echo ($teacher['id'] === $class['wali_kelas_id']) ? 'selected' : ''; ?>>
+                                        <?php echo $teacher['nama']; ?>
+                                    </option>
+                                <?php endwhile;
+                            }
                             ?>
-                                <option value="<?php echo $teacher['id']; ?>" <?php echo ($teacher['id'] === $class['wali_kelas_id']) ? 'selected' : ''; ?>>
-                                    <?php echo $teacher['nama']; ?>
-                                </option>
-                            <?php endwhile; ?>
                         </select>
                     </div>
                     
@@ -495,5 +528,304 @@ include_once '../../includes/header.php';
         </div>
     </div>
 </div>
+
+<!-- Add Student Modal -->
+<div class="modal fade" id="addStudentModal" tabindex="-1" aria-labelledby="addStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addStudentModalLabel">Tambah Siswa Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="process_student.php">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="add_student">
+                    <input type="hidden" name="kelas_id" value="<?php echo $class_id; ?>">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nama" class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nama" name="nama" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="nisn" class="form-label">NISN <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="nisn" name="nisn" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+                    
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStudentModalLabel">Edit Siswa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="process_student.php">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="edit_student">
+                    <input type="hidden" name="student_id" id="edit_student_id">
+                    <input type="hidden" name="kelas_id" value="<?php echo $class_id; ?>">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_nama" class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit_nama" name="nama" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_nisn" class="form-label">NISN <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit_nisn" name="nisn" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="edit_email" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="edit_password" name="password">
+                            <small class="form-text text-muted">Biarkan kosong jika tidak ingin mengubah password.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- View Material Modal -->
+<div class="modal fade" id="viewMaterialModal" tabindex="-1" aria-labelledby="viewMaterialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewMaterialModalLabel">Detail Materi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h4 id="material-judul"></h4>
+                        <p class="text-muted">ID: <span id="material-id"></span></p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Tingkat:</strong> <span id="material-tingkat"></span></p>
+                        <p><strong>Dibuat Oleh:</strong> <span id="material-pembuat"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Tanggal Dibuat:</strong> <span id="material-tanggal"></span></p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Untuk melihat konten materi lengkap, silakan masuk sebagai siswa atau guru.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Assignment Modal -->
+<div class="modal fade" id="viewAssignmentModal" tabindex="-1" aria-labelledby="viewAssignmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewAssignmentModalLabel">Detail Tugas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h4 id="assignment-judul"></h4>
+                        <p class="text-muted">ID: <span id="assignment-id"></span></p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Materi:</strong> <span id="assignment-materi"></span></p>
+                        <p><strong>Dibuat Oleh:</strong> <span id="assignment-pembuat"></span></p>
+                        <p><strong>Tanggal Dibuat:</strong> <span id="assignment-tanggal"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Deadline:</strong> <span id="assignment-deadline"></span></p>
+                        <p><strong>Jumlah Pengumpulan:</strong> <span id="assignment-pengumpulan"></span></p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Untuk melihat detail tugas lengkap dan pengumpulan siswa, silakan masuk sebagai guru.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Questionnaire Modal -->
+<div class="modal fade" id="viewQuestionnaireModal" tabindex="-1" aria-labelledby="viewQuestionnaireModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewQuestionnaireModalLabel">Detail Kuesioner</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h4 id="questionnaire-judul"></h4>
+                        <p class="text-muted">ID: <span id="questionnaire-id"></span></p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Dibuat Oleh:</strong> <span id="questionnaire-pembuat"></span></p>
+                        <p><strong>Tanggal Dibuat:</strong> <span id="questionnaire-tanggal"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Jumlah Pertanyaan:</strong> <span id="questionnaire-pertanyaan"></span></p>
+                        <p><strong>Jumlah Responden:</strong> <span id="questionnaire-responden"></span></p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Untuk melihat hasil kuesioner lengkap, silakan masuk sebagai guru.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Modals -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle edit student button clicks
+    const editButtons = document.querySelectorAll('.edit-student-btn');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Get data from button attributes
+            const id = this.getAttribute('data-id');
+            const nama = this.getAttribute('data-nama');
+            const nisn = this.getAttribute('data-nisn');
+            const email = this.getAttribute('data-email');
+            
+            // Set values in the edit form
+            document.getElementById('edit_student_id').value = id;
+            document.getElementById('edit_nama').value = nama;
+            document.getElementById('edit_nisn').value = nisn;
+            document.getElementById('edit_email').value = email;
+            document.getElementById('edit_password').value = '';
+        });
+    });
+    
+    // Handle view material button clicks
+    const viewMaterialButtons = document.querySelectorAll('.view-material-btn');
+    viewMaterialButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Get data from button attributes
+            const id = this.getAttribute('data-id');
+            const judul = this.getAttribute('data-judul');
+            const tingkat = this.getAttribute('data-tingkat');
+            const pembuat = this.getAttribute('data-pembuat');
+            const tanggal = this.getAttribute('data-tanggal');
+            
+            // Set values in the modal
+            document.getElementById('material-id').textContent = id;
+            document.getElementById('material-judul').textContent = judul;
+            document.getElementById('material-tingkat').textContent = tingkat;
+            document.getElementById('material-pembuat').textContent = pembuat;
+            document.getElementById('material-tanggal').textContent = tanggal;
+        });
+    });
+    
+    // Handle view assignment button clicks
+    const viewAssignmentButtons = document.querySelectorAll('.view-assignment-btn');
+    viewAssignmentButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Get data from button attributes
+            const id = this.getAttribute('data-id');
+            const judul = this.getAttribute('data-judul');
+            const materi = this.getAttribute('data-materi');
+            const pembuat = this.getAttribute('data-pembuat');
+            const tanggal = this.getAttribute('data-tanggal');
+            const deadline = this.getAttribute('data-deadline');
+            const pengumpulan = this.getAttribute('data-pengumpulan');
+            
+            // Set values in the modal
+            document.getElementById('assignment-id').textContent = id;
+            document.getElementById('assignment-judul').textContent = judul;
+            document.getElementById('assignment-materi').textContent = materi;
+            document.getElementById('assignment-pembuat').textContent = pembuat;
+            document.getElementById('assignment-tanggal').textContent = tanggal;
+            document.getElementById('assignment-deadline').textContent = deadline;
+            document.getElementById('assignment-pengumpulan').textContent = pengumpulan;
+        });
+    });
+    
+    // Handle view questionnaire button clicks
+    const viewQuestionnaireButtons = document.querySelectorAll('.view-questionnaire-btn');
+    viewQuestionnaireButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Get data from button attributes
+            const id = this.getAttribute('data-id');
+            const judul = this.getAttribute('data-judul');
+            const pembuat = this.getAttribute('data-pembuat');
+            const tanggal = this.getAttribute('data-tanggal');
+            const pertanyaan = this.getAttribute('data-pertanyaan');
+            const responden = this.getAttribute('data-responden');
+            
+            // Set values in the modal
+            document.getElementById('questionnaire-id').textContent = id;
+            document.getElementById('questionnaire-judul').textContent = judul;
+            document.getElementById('questionnaire-pembuat').textContent = pembuat;
+            document.getElementById('questionnaire-tanggal').textContent = tanggal;
+            document.getElementById('questionnaire-pertanyaan').textContent = pertanyaan;
+            document.getElementById('questionnaire-responden').textContent = responden;
+        });
+    });
+});
+</script>
 
 <?php include_once '../../includes/footer.php'; ?> 

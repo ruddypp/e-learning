@@ -43,9 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     $error = '';
     
-    // Check which type of identifier was used (NISN, NUPTK, or email for admin)
+    // Check which type of identifier was used based on user role:
+    // - Admin: Only email
+    // - Guru & Kepsek: NUPTK or email
+    // - Siswa: Only NISN
     $query = "SELECT id, nama, email, password, tipe_pengguna, nisn, nuptk FROM pengguna 
-              WHERE nisn = '$identifier' OR nuptk = '$identifier' OR (email = '$identifier' AND tipe_pengguna = 'admin')";
+              WHERE (tipe_pengguna = 'siswa' AND nisn = '$identifier') 
+              OR (tipe_pengguna = 'admin' AND email = '$identifier')
+              OR ((tipe_pengguna = 'guru' OR tipe_pengguna = 'kepsek') AND (nuptk = '$identifier' OR email = '$identifier'))";
     
     $result = mysqli_query($conn, $query);
     
@@ -88,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Password yang dimasukkan tidak valid.';
         }
     } else {
-        $error = 'NISN, NUPTK, atau Email tidak ditemukan.';
+        $error = 'Data login tidak valid. Pastikan Anda menggunakan: NISN (untuk siswa), NUPTK/Email (untuk guru/kepsek), atau Email (untuk admin).';
     }
     
     if (!empty($error)) {
@@ -630,7 +635,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-group">
                                 <div class="form-floating">
                                     <input type="text" class="form-control" id="identifier" name="identifier" placeholder=" " required>
-                                    <label for="identifier">NISN / NUPTK / Email</label>
+                                    <label for="identifier">NISN (Siswa) / NUPTK atau Email (Guru/Kepsek) / Email (Admin)</label>
                                 </div>
                             </div>
                             
@@ -644,13 +649,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <button class="w-100 btn btn-primary btn-login" type="submit" id="loginBtn">
                                 <span class="btn-text">Masuk Sekarang</span>
                             </button>
-                            
-                            <div class="login-help">
-                                <p class="help-text">
-                                    <i class="fas fa-question-circle"></i>
-                                    Lupa kata sandi? Hubungi administrator sekolah
-                                </p>
-                            </div>
                         </form>
                         
                         <div class="login-footer">

@@ -248,10 +248,10 @@ window.addEventListener('error', function(e) {
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Daftar Aktivitas</h5>
             <div>
-                <a href="logs.php" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-server me-1"></i> Log Sistem
+                <a href="logs.php" class="btn btn-sm btn-secondary text-white">
+                    <i class="fas fa-server me-1 "></i> Log Sistem
                 </a>
-                <a href="#" class="btn btn-sm btn-outline-primary" onclick="exportTableToCSV('activity_log.csv')">
+                <a href="#" class="btn btn-sm btn-info text-white" onclick="exportTableToCSV('activity_log.csv')">
                     <i class="fas fa-download me-1"></i> Ekspor CSV
                 </a>
             </div>

@@ -191,15 +191,8 @@ include_once '../../includes/header.php';
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-4">
-                        <?php if ($attempt['nilai']): ?>
-                            <div class="display-1 fw-bold text-primary mb-3"><?php echo $attempt['nilai']; ?></div>
-                            <p class="lead">Nilai Akhir</p>
-                        <?php else: ?>
-                            <div class="display-1 fw-bold text-warning mb-3">
-                                <i class="fas fa-hourglass-half"></i>
-                            </div>
-                            <p class="lead">Menunggu Penilaian Guru</p>
-                        <?php endif; ?>
+                        <div class="display-1 fw-bold text-primary mb-3"><?php echo $attempt['nilai']; ?></div>
+                        <p class="lead">Nilai Akhir</p>
                     </div>
                     
                     <div class="row text-center">

@@ -347,11 +347,7 @@ include_once '../../includes/header.php';
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?php if ($attempt['dinilai_oleh']): ?>
-                                                    <span class="badge bg-success">Telah dinilai</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-warning">Menunggu penilaian</span>
-                                                <?php endif; ?>
+                                                <span class="badge bg-success">Dinilai otomatis</span>
                                             </td>
                                             <td>
                                                 <a href="quiz_detail.php?id=<?php echo $quiz_id; ?>&student_id=<?php echo $attempt['siswa_id']; ?>" 
@@ -404,37 +400,11 @@ include_once '../../includes/header.php';
                             </div>
                         </div>
                         
-                        <?php if ($_SESSION['user_role'] === 'guru'): ?>
-                            <!-- Grading Form -->
-                            <form method="POST" action="quiz_detail.php?id=<?php echo $quiz_id; ?>&student_id=<?php echo $selected_attempt['siswa_id']; ?>">
-                                <input type="hidden" name="action" value="grade_quiz">
-                                <input type="hidden" name="nilai_tugas_id" value="<?php echo $selected_attempt['id']; ?>">
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label for="nilai" class="form-label">Nilai Akhir</label>
-                                        <input type="number" class="form-control" id="nilai" name="nilai" min="0" max="100" 
-                                               value="<?php echo $selected_attempt['nilai'] ?? ''; ?>" required>
-                                    </div>
-                                    <div class="col-md-8">
-                                        <label for="feedback" class="form-label">Feedback</label>
-                                        <textarea class="form-control" id="feedback" name="feedback" rows="3"><?php echo $selected_attempt['feedback'] ?? ''; ?></textarea>
-                                    </div>
-                                </div>
-                                
-                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-2"></i> Simpan Penilaian
-                                    </button>
-                                </div>
-                            </form>
-                        <?php elseif ($selected_attempt['feedback']): ?>
-                            <!-- Display Feedback -->
-                            <div class="alert alert-info mb-4">
-                                <h6>Feedback dari Guru:</h6>
-                                <p class="mb-0"><?php echo $selected_attempt['feedback']; ?></p>
-                            </div>
-                        <?php endif; ?>
+                        <!-- Read-only display of score -->
+                        <div class="alert alert-info mb-4">
+                            <h6>Nilai Quiz:</h6>
+                            <p class="mb-0">Quiz ini dinilai secara otomatis. Nilai siswa: <strong><?php echo $selected_attempt['nilai']; ?></strong></p>
+                        </div>
                         
                         <!-- Display Answers -->
                         <div class="accordion" id="accordionAnswers">
