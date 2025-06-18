@@ -6,11 +6,31 @@ require_once '../../includes/functions.php';
 // Check if user is logged in and has admin role
 checkAccess(['admin']);
 
+// Debug session information
+error_log("Session user_id: " . (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 'Not set'));
+error_log("Session user_role: " . (isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Not set'));
+
+// Make sure we have a valid user ID for logging
+$logging_user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 'ADMIN001';
+
+// Check if the user ID exists in the database
+$user_id_check_query = "SELECT id FROM pengguna WHERE id = ?";
+$user_id_check_stmt = mysqli_prepare($conn, $user_id_check_query);
+mysqli_stmt_bind_param($user_id_check_stmt, "s", $logging_user_id);
+mysqli_stmt_execute($user_id_check_stmt);
+$user_id_check_result = mysqli_stmt_get_result($user_id_check_stmt);
+
+// If user doesn't exist, use ADMIN001 as fallback
+if (mysqli_num_rows($user_id_check_result) === 0) {
+    $logging_user_id = 'ADMIN001';
+    error_log("User ID not found in database, using fallback ADMIN001");
+}
+
 // Process form submission for adding/editing users
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'add' || $_POST['action'] === 'edit') {
-            $id = isset($_POST['id']) ? sanitizeInput($_POST['id']) : 'U' . substr(md5(uniqid()), 0, 8);
+            $id = isset($_POST['id']) ? sanitizeInput($_POST['id']) : generateID('U', 'pengguna', 'id');
             $nama = sanitizeInput($_POST['nama']);
             $email = sanitizeInput($_POST['email']);
             $tipe_pengguna = sanitizeInput($_POST['tipe_pengguna']);
@@ -37,83 +57,158 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle password (only hash if it's provided for edit)
             if ($_POST['action'] === 'add' || !empty($_POST['password'])) {
                 $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                $password_sql = ", password = '$password'";
-            } else {
-                $password_sql = "";
             }
             
             if ($_POST['action'] === 'add') {
-                // Check if email, NISN, or NUPTK already exists
-                $check_query = "SELECT id FROM pengguna WHERE email = '$email' OR 
-                               (nisn = '$nisn' AND nisn IS NOT NULL AND '$nisn' != '') OR 
-                               (nuptk = '$nuptk' AND nuptk IS NOT NULL AND '$nuptk' != '')";
-                $check_result = mysqli_query($conn, $check_query);
-                
-                if (mysqli_num_rows($check_result) > 0) {
-                    setFlashMessage('error', 'Email, NISN, atau NUPTK sudah terdaftar.');
-                    header('Location: users.php');
-                    exit;
-                }
-                
-                $query = "INSERT INTO pengguna (id, nama, email, password, tipe_pengguna, kelas_id, nisn, nuptk, tanggal_daftar) 
-                          VALUES ('$id', '$nama', '$email', '$password', '$tipe_pengguna', " . 
-                          ($kelas_id ? "'$kelas_id'" : "NULL") . ", " . 
-                          ($nisn ? "'$nisn'" : "NULL") . ", " . 
-                          ($nuptk ? "'$nuptk'" : "NULL") . ", CURDATE())";
-                
-                if (mysqli_query($conn, $query)) {
-                    setFlashMessage('success', 'Pengguna berhasil ditambahkan.');
+                try {
+                    // Check if email, NISN, or NUPTK already exists using prepared statement
+                    $check_query = "SELECT id FROM pengguna WHERE email = ? OR 
+                                (nisn = ? AND nisn IS NOT NULL AND ? != '') OR 
+                                (nuptk = ? AND nuptk IS NOT NULL AND ? != '')";
+                    $stmt = mysqli_prepare($conn, $check_query);
+                    mysqli_stmt_bind_param($stmt, "sssss", $email, $nisn, $nisn, $nuptk, $nuptk);
+                    mysqli_stmt_execute($stmt);
+                    $check_result = mysqli_stmt_get_result($stmt);
                     
-                    // Log activity with allowed activity type
-                    logActivity($_SESSION['user_id'], 'tambah_materi', "Admin menambahkan pengguna baru: $nama");
+                    if (mysqli_num_rows($check_result) > 0) {
+                        setFlashMessage('error', 'Email, NISN, atau NUPTK sudah terdaftar.');
+                        header('Location: users.php');
+                        exit;
+                    }
                     
-                    // Log to system log
-                    $ip = $_SERVER['REMOTE_ADDR'];
-                    $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                    $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
-                                 VALUES ('{$_SESSION['user_id']}', 'tambah_pengguna', 'Admin menambahkan pengguna baru: $nama (ID: $id)', '$ip', '$user_agent')";
-                    mysqli_query($conn, $log_query);
-                } else {
-                    setFlashMessage('error', 'Gagal menambahkan pengguna: ' . mysqli_error($conn));
+                    // Insert user with prepared statement
+                    $query = "INSERT INTO pengguna (id, nama, email, password, tipe_pengguna, kelas_id, nisn, nuptk, tanggal_daftar) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())";
+                    $stmt = mysqli_prepare($conn, $query);
+                    
+                    // Handle NULL values correctly
+                    $kelas_id_param = $kelas_id ?? NULL;
+                    $nisn_param = $nisn ?? NULL;
+                    $nuptk_param = $nuptk ?? NULL;
+                    
+                    // Bind all parameters
+                    mysqli_stmt_bind_param($stmt, "ssssssss", $id, $nama, $email, $password, $tipe_pengguna, $kelas_id_param, $nisn_param, $nuptk_param);
+                    
+                    if (mysqli_stmt_execute($stmt)) {
+                        setFlashMessage('success', 'Pengguna berhasil ditambahkan.');
+                        
+                        // Check if the current user exists in the database before logging
+                        $user_check_query = "SELECT id FROM pengguna WHERE id = ?";
+                        $user_check_stmt = mysqli_prepare($conn, $user_check_query);
+                        mysqli_stmt_bind_param($user_check_stmt, "s", $logging_user_id);
+                        mysqli_stmt_execute($user_check_stmt);
+                        $user_check_result = mysqli_stmt_get_result($user_check_stmt);
+                        
+                        if (mysqli_num_rows($user_check_result) > 0) {
+                            // Log activity with allowed activity type
+                            logActivity($logging_user_id, 'tambah_materi', "Admin menambahkan pengguna baru: $nama");
+                        } else {
+                            // Log to file instead if user doesn't exist
+                            error_log("Failed to log activity: User ID {$logging_user_id} not found in pengguna table");
+                        }
+                        
+                        // Log to system log
+                        $ip = $_SERVER['REMOTE_ADDR'];
+                        $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                        $aksi = 'tambah_pengguna';
+                        $detail = "Admin menambahkan pengguna baru: $nama (ID: $id)";
+                        
+                        $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                    VALUES (?, ?, ?, ?, ?)";
+                        $log_stmt = mysqli_prepare($conn, $log_query);
+                        mysqli_stmt_bind_param($log_stmt, "sssss", $logging_user_id, $aksi, $detail, $ip, $user_agent);
+                        mysqli_stmt_execute($log_stmt);
+                    } else {
+                        setFlashMessage('error', 'Gagal menambahkan pengguna: ' . mysqli_error($conn));
+                    }
+                } catch (Exception $e) {
+                    setFlashMessage('error', 'Terjadi kesalahan: ' . $e->getMessage());
                 }
             } else { // Edit action
-                // Check for email, NISN, or NUPTK duplicates (excluding current user)
-                $check_query = "SELECT id FROM pengguna WHERE 
-                               (email = '$email' AND id != '$id') OR 
-                               (nisn = '$nisn' AND nisn IS NOT NULL AND '$nisn' != '' AND id != '$id') OR 
-                               (nuptk = '$nuptk' AND nuptk IS NOT NULL AND '$nuptk' != '' AND id != '$id')";
-                $check_result = mysqli_query($conn, $check_query);
-                
-                if (mysqli_num_rows($check_result) > 0) {
-                    setFlashMessage('error', 'Email, NISN, atau NUPTK sudah terdaftar pada pengguna lain.');
-                    header('Location: users.php');
-                    exit;
-                }
-                
-                $query = "UPDATE pengguna SET 
-                          nama = '$nama', 
-                          email = '$email',
-                          tipe_pengguna = '$tipe_pengguna', 
-                          kelas_id = " . ($kelas_id ? "'$kelas_id'" : "NULL") . ", 
-                          nisn = " . ($nisn ? "'$nisn'" : "NULL") . ", 
-                          nuptk = " . ($nuptk ? "'$nuptk'" : "NULL") . 
-                          $password_sql . 
-                          " WHERE id = '$id'";
-                
-                if (mysqli_query($conn, $query)) {
-                    setFlashMessage('success', 'Pengguna berhasil diperbarui.');
+                try {
+                    // Check for email, NISN, or NUPTK duplicates using prepared statement
+                    $check_query = "SELECT id FROM pengguna WHERE 
+                                (email = ? AND id != ?) OR 
+                                (nisn = ? AND nisn IS NOT NULL AND ? != '' AND id != ?) OR 
+                                (nuptk = ? AND nuptk IS NOT NULL AND ? != '' AND id != ?)";
+                    $stmt = mysqli_prepare($conn, $check_query);
+                    mysqli_stmt_bind_param($stmt, "ssssssss", $email, $id, $nisn, $nisn, $id, $nuptk, $nuptk, $id);
+                    mysqli_stmt_execute($stmt);
+                    $check_result = mysqli_stmt_get_result($stmt);
                     
-                    // Log activity with allowed activity type
-                    logActivity($_SESSION['user_id'], 'verifikasi', "Admin mengedit pengguna: $nama");
+                    if (mysqli_num_rows($check_result) > 0) {
+                        setFlashMessage('error', 'Email, NISN, atau NUPTK sudah terdaftar pada pengguna lain.');
+                        header('Location: users.php');
+                        exit;
+                    }
                     
-                    // Log to system log
-                    $ip = $_SERVER['REMOTE_ADDR'];
-                    $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                    $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
-                                 VALUES ('{$_SESSION['user_id']}', 'edit_pengguna', 'Admin mengedit pengguna: $nama (ID: $id)', '$ip', '$user_agent')";
-                    mysqli_query($conn, $log_query);
-                } else {
-                    setFlashMessage('error', 'Gagal memperbarui pengguna: ' . mysqli_error($conn));
+                    // Handle NULL values correctly
+                    $kelas_id_param = $kelas_id ?? NULL;
+                    $nisn_param = $nisn ?? NULL;
+                    $nuptk_param = $nuptk ?? NULL;
+                    
+                    // Update user with prepared statement
+                    if ($_POST['action'] === 'edit' && !empty($_POST['password'])) {
+                        // With password update
+                        $query = "UPDATE pengguna SET 
+                                nama = ?, 
+                                email = ?,
+                                tipe_pengguna = ?, 
+                                kelas_id = ?, 
+                                nisn = ?, 
+                                nuptk = ?,
+                                password = ? 
+                                WHERE id = ?";
+                        $stmt = mysqli_prepare($conn, $query);
+                        mysqli_stmt_bind_param($stmt, "ssssssss", $nama, $email, $tipe_pengguna, $kelas_id_param, $nisn_param, $nuptk_param, $password, $id);
+                    } else {
+                        // Without password update
+                        $query = "UPDATE pengguna SET 
+                                nama = ?, 
+                                email = ?,
+                                tipe_pengguna = ?, 
+                                kelas_id = ?, 
+                                nisn = ?, 
+                                nuptk = ? 
+                                WHERE id = ?";
+                        $stmt = mysqli_prepare($conn, $query);
+                        mysqli_stmt_bind_param($stmt, "sssssss", $nama, $email, $tipe_pengguna, $kelas_id_param, $nisn_param, $nuptk_param, $id);
+                    }
+                    
+                    if (mysqli_stmt_execute($stmt)) {
+                        setFlashMessage('success', 'Pengguna berhasil diperbarui.');
+                        
+                        // Check if the current user exists in the database before logging
+                        $user_check_query = "SELECT id FROM pengguna WHERE id = ?";
+                        $user_check_stmt = mysqli_prepare($conn, $user_check_query);
+                        mysqli_stmt_bind_param($user_check_stmt, "s", $logging_user_id);
+                        mysqli_stmt_execute($user_check_stmt);
+                        $user_check_result = mysqli_stmt_get_result($user_check_stmt);
+                        
+                        if (mysqli_num_rows($user_check_result) > 0) {
+                            // Log activity with allowed activity type
+                            logActivity($logging_user_id, 'edit_materi', "Admin mengedit pengguna: $nama");
+                        } else {
+                            // Log to file instead if user doesn't exist
+                            error_log("Failed to log activity: User ID {$logging_user_id} not found in pengguna table");
+                        }
+                        
+                        // Log to system log
+                        $ip = $_SERVER['REMOTE_ADDR'];
+                        $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                        $aksi = 'edit_pengguna';
+                        $detail = "Admin mengedit pengguna: $nama (ID: $id)";
+                        
+                        $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                    VALUES (?, ?, ?, ?, ?)";
+                        $log_stmt = mysqli_prepare($conn, $log_query);
+                        mysqli_stmt_bind_param($log_stmt, "sssss", $logging_user_id, $aksi, $detail, $ip, $user_agent);
+                        mysqli_stmt_execute($log_stmt);
+                    } else {
+                        setFlashMessage('error', 'Gagal memperbarui pengguna: ' . mysqli_error($conn));
+                    }
+                } catch (Exception $e) {
+                    setFlashMessage('error', 'Terjadi kesalahan: ' . $e->getMessage());
                 }
             }
             
@@ -135,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user = mysqli_fetch_assoc($check_result);
                     
                     // Don't allow deleting the currently logged-in user
-                    if ($id === $_SESSION['user_id']) {
+                    if ($id === $logging_user_id) {
                         setFlashMessage('error', 'Anda tidak dapat menghapus akun yang sedang digunakan.');
                     } else {
                         // Check if user has related data
@@ -182,18 +277,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (mysqli_stmt_execute($stmt)) {
                                 setFlashMessage('success', 'Pengguna berhasil dihapus.');
                                 
-                                // Log activity with allowed activity type
-                                logActivity($_SESSION['user_id'], 'hapus_materi', "Admin menghapus pengguna: {$user['nama']}");
+                                // Check if the current user exists in the database before logging
+                                $user_check_query = "SELECT id FROM pengguna WHERE id = ?";
+                                $user_check_stmt = mysqli_prepare($conn, $user_check_query);
+                                mysqli_stmt_bind_param($user_check_stmt, "s", $logging_user_id);
+                                mysqli_stmt_execute($user_check_stmt);
+                                $user_check_result = mysqli_stmt_get_result($user_check_stmt);
+                                
+                                if (mysqli_num_rows($user_check_result) > 0) {
+                                    // Log activity with allowed activity type
+                                    logActivity($logging_user_id, 'hapus_materi', "Admin menghapus pengguna: {$user['nama']}");
+                                } else {
+                                    // Log to file instead if user doesn't exist
+                                    error_log("Failed to log activity: User ID {$logging_user_id} not found in pengguna table");
+                                }
                                 
                                 // Log to system log
                                 $ip = $_SERVER['REMOTE_ADDR'];
                                 $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                                $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
-                                            VALUES (?, 'hapus_pengguna', ?, ?, ?)";
-                                $stmt = mysqli_prepare($conn, $log_query);
+                                $aksi = 'hapus_pengguna';
                                 $detail = "Admin menghapus pengguna: {$user['nama']} (ID: $id)";
-                                mysqli_stmt_bind_param($stmt, "ssss", $_SESSION['user_id'], $detail, $ip, $user_agent);
-                                mysqli_stmt_execute($stmt);
+                                
+                                $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                            VALUES (?, ?, ?, ?, ?)";
+                                $log_stmt = mysqli_prepare($conn, $log_query);
+                                mysqli_stmt_bind_param($log_stmt, "sssss", $logging_user_id, $aksi, $detail, $ip, $user_agent);
+                                mysqli_stmt_execute($log_stmt);
                             } else {
                                 setFlashMessage('error', 'Gagal menghapus pengguna: ' . mysqli_error($conn));
                             }
@@ -217,8 +326,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $edit_user = null;
 if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) {
     $id = sanitizeInput($_GET['id']);
-    $query = "SELECT * FROM pengguna WHERE id = '$id'";
-    $result = mysqli_query($conn, $query);
+    $query = "SELECT * FROM pengguna WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "s", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
     
     if (mysqli_num_rows($result) > 0) {
         $edit_user = mysqli_fetch_assoc($result);
@@ -227,7 +339,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) 
 
 // Get list of classes for dropdown
 $query_classes = "SELECT id, nama, tahun_ajaran FROM kelas ORDER BY nama ASC";
-$result_classes = mysqli_query($conn, $query_classes);
+$stmt_classes = mysqli_prepare($conn, $query_classes);
+mysqli_stmt_execute($stmt_classes);
+$result_classes = mysqli_stmt_get_result($stmt_classes);
 $classes = [];
 
 while ($row = mysqli_fetch_assoc($result_classes)) {
@@ -239,7 +353,9 @@ $query_users = "SELECT p.*, k.nama as kelas_nama
                 FROM pengguna p 
                 LEFT JOIN kelas k ON p.kelas_id = k.id 
                 ORDER BY p.tipe_pengguna, p.nama ASC";
-$result_users = mysqli_query($conn, $query_users);
+$stmt_users = mysqli_prepare($conn, $query_users);
+mysqli_stmt_execute($stmt_users);
+$result_users = mysqli_stmt_get_result($stmt_users);
 
 // Include header
 include_once '../../includes/header.php';

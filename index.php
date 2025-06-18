@@ -635,7 +635,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-group">
                                 <div class="form-floating">
                                     <input type="text" class="form-control" id="identifier" name="identifier" placeholder=" " required>
-                                    <label for="identifier">NISN (Siswa) / NUPTK atau Email (Guru/Kepsek) / Email (Admin)</label>
+                                    <label for="identifier">NISN / NUPTK / Email</label>
                                 </div>
                             </div>
                             
