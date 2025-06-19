@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS materi_coding (
     FOREIGN KEY (dibuat_oleh) REFERENCES pengguna(id)
 );
 
+-- Add image_url column to materi_coding table
+ALTER TABLE materi_coding ADD COLUMN image_url VARCHAR(255) NULL AFTER deskripsi;
+
 -- Table: tugas (Assignments/Quizzes)
 CREATE TABLE IF NOT EXISTS tugas (
     id VARCHAR(20) PRIMARY KEY,

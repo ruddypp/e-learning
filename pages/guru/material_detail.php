@@ -129,6 +129,13 @@ include_once '../../includes/header.php';
                         </p>
                     </div>
                     
+                    <!-- Material Image -->
+                    <?php if (!empty($material['image_url'])): ?>
+                    <div class="mb-4">
+                        <img src="../../<?php echo $material['image_url']; ?>" class="img-fluid rounded" alt="<?php echo $material['judul']; ?>">
+                    </div>
+                    <?php endif; ?>
+                    
                     <!-- Material Content -->
                     <div class="materi-content">
                         <?php echo $material['deskripsi']; ?>

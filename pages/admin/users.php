@@ -269,42 +269,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($has_related_data) {
                             setFlashMessage('error', 'Pengguna tidak dapat dihapus karena masih memiliki data terkait. Hapus data terkait terlebih dahulu.');
                         } else {
-                            // Delete user
-                            $query = "DELETE FROM pengguna WHERE id = ?";
-                            $stmt = mysqli_prepare($conn, $query);
-                            mysqli_stmt_bind_param($stmt, "s", $id);
+                            // Mulai transaction untuk memastikan semua operasi berhasil atau tidak sama sekali
+                            mysqli_begin_transaction($conn);
                             
-                            if (mysqli_stmt_execute($stmt)) {
-                                setFlashMessage('success', 'Pengguna berhasil dihapus.');
+                            try {
+                                // Hapus catatan aktivitas pengguna
+                                $delete_activities_query = "DELETE FROM laporan_aktivitas WHERE pengguna_id = ?";
+                                $delete_activities_stmt = mysqli_prepare($conn, $delete_activities_query);
+                                mysqli_stmt_bind_param($delete_activities_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_activities_stmt);
                                 
-                                // Check if the current user exists in the database before logging
-                                $user_check_query = "SELECT id FROM pengguna WHERE id = ?";
-                                $user_check_stmt = mysqli_prepare($conn, $user_check_query);
-                                mysqli_stmt_bind_param($user_check_stmt, "s", $logging_user_id);
-                                mysqli_stmt_execute($user_check_stmt);
-                                $user_check_result = mysqli_stmt_get_result($user_check_stmt);
+                                // Hapus log sistem pengguna
+                                $delete_logs_query = "DELETE FROM log_sistem WHERE pengguna_id = ?";
+                                $delete_logs_stmt = mysqli_prepare($conn, $delete_logs_query);
+                                mysqli_stmt_bind_param($delete_logs_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_logs_stmt);
                                 
-                                if (mysqli_num_rows($user_check_result) > 0) {
+                                // Hapus jawaban kuesioner pengguna (jika siswa)
+                                $delete_jawaban_query = "DELETE FROM jawaban_kuesioner WHERE siswa_id = ?";
+                                $delete_jawaban_stmt = mysqli_prepare($conn, $delete_jawaban_query);
+                                mysqli_stmt_bind_param($delete_jawaban_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_jawaban_stmt);
+                                
+                                // Hapus nilai tugas pengguna (jika siswa atau guru)
+                                $delete_nilai_siswa_query = "DELETE FROM nilai_tugas WHERE siswa_id = ? OR dinilai_oleh = ?";
+                                $delete_nilai_stmt = mysqli_prepare($conn, $delete_nilai_siswa_query);
+                                mysqli_stmt_bind_param($delete_nilai_stmt, "ss", $id, $id);
+                                mysqli_stmt_execute($delete_nilai_stmt);
+                                
+                                // Hapus materi yang dibuat pengguna (jika guru)
+                                $delete_materi_query = "DELETE FROM materi_coding WHERE dibuat_oleh = ?";
+                                $delete_materi_stmt = mysqli_prepare($conn, $delete_materi_query);
+                                mysqli_stmt_bind_param($delete_materi_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_materi_stmt);
+                                
+                                // Hapus kuesioner yang dibuat pengguna (jika guru)
+                                $delete_kuesioner_query = "DELETE FROM kuesioner WHERE dibuat_oleh = ?";
+                                $delete_kuesioner_stmt = mysqli_prepare($conn, $delete_kuesioner_query);
+                                mysqli_stmt_bind_param($delete_kuesioner_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_kuesioner_stmt);
+                                
+                                // Hapus tugas yang dibuat pengguna (jika guru)
+                                $delete_tugas_query = "DELETE FROM tugas WHERE dibuat_oleh = ?";
+                                $delete_tugas_stmt = mysqli_prepare($conn, $delete_tugas_query);
+                                mysqli_stmt_bind_param($delete_tugas_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_tugas_stmt);
+                                
+                                // Hapus backup yang dibuat pengguna (jika admin)
+                                $delete_backup_query = "DELETE FROM backup_data WHERE dibuat_oleh = ?";
+                                $delete_backup_stmt = mysqli_prepare($conn, $delete_backup_query);
+                                mysqli_stmt_bind_param($delete_backup_stmt, "s", $id);
+                                mysqli_stmt_execute($delete_backup_stmt);
+                                
+                                // Delete user
+                                $query = "DELETE FROM pengguna WHERE id = ?";
+                                $stmt = mysqli_prepare($conn, $query);
+                                mysqli_stmt_bind_param($stmt, "s", $id);
+                                
+                                if (mysqli_stmt_execute($stmt)) {
+                                    // Commit transaction
+                                    mysqli_commit($conn);
+                                    
+                                    setFlashMessage('success', 'Pengguna berhasil dihapus.');
+                                    
                                     // Log activity with allowed activity type
                                     logActivity($logging_user_id, 'hapus_materi', "Admin menghapus pengguna: {$user['nama']}");
+                                    
+                                    // Log to system log
+                                    $ip = $_SERVER['REMOTE_ADDR'];
+                                    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                                    $aksi = 'hapus_pengguna';
+                                    $detail = "Admin menghapus pengguna: {$user['nama']} (ID: $id)";
+                                    
+                                    $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
+                                                VALUES (?, ?, ?, ?, ?)";
+                                    $log_stmt = mysqli_prepare($conn, $log_query);
+                                    mysqli_stmt_bind_param($log_stmt, "sssss", $logging_user_id, $aksi, $detail, $ip, $user_agent);
+                                    mysqli_stmt_execute($log_stmt);
                                 } else {
-                                    // Log to file instead if user doesn't exist
-                                    error_log("Failed to log activity: User ID {$logging_user_id} not found in pengguna table");
+                                    // Rollback transaction
+                                    mysqli_rollback($conn);
+                                    setFlashMessage('error', 'Gagal menghapus pengguna: ' . mysqli_error($conn));
                                 }
-                                
-                                // Log to system log
-                                $ip = $_SERVER['REMOTE_ADDR'];
-                                $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                                $aksi = 'hapus_pengguna';
-                                $detail = "Admin menghapus pengguna: {$user['nama']} (ID: $id)";
-                                
-                                $log_query = "INSERT INTO log_sistem (pengguna_id, aksi, detail, ip_address, user_agent) 
-                                            VALUES (?, ?, ?, ?, ?)";
-                                $log_stmt = mysqli_prepare($conn, $log_query);
-                                mysqli_stmt_bind_param($log_stmt, "sssss", $logging_user_id, $aksi, $detail, $ip, $user_agent);
-                                mysqli_stmt_execute($log_stmt);
-                            } else {
-                                setFlashMessage('error', 'Gagal menghapus pengguna: ' . mysqli_error($conn));
+                            } catch (Exception $e) {
+                                // Rollback transaction
+                                mysqli_rollback($conn);
+                                setFlashMessage('error', 'Terjadi kesalahan: ' . $e->getMessage());
                             }
                         }
                     }

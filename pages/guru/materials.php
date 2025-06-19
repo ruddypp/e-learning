@@ -16,9 +16,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tingkat = sanitizeInput($_POST['tingkat']);
             $kelas_id = sanitizeInput($_POST['kelas_id']);
             
+            // Process image upload if present
+            $image_url = null;
+            if (isset($_FILES['material_image']) && $_FILES['material_image']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = '../../uploads/materials/images/';
+                
+                // Create directory if it doesn't exist
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['material_image']['name'], PATHINFO_EXTENSION);
+                $file_name = 'material_' . $id . '_' . time() . '.' . $file_extension;
+                $upload_file = $upload_dir . $file_name;
+                
+                // Check file size (max 2MB)
+                $max_size = 2 * 1024 * 1024; // 2MB in bytes
+                if ($_FILES['material_image']['size'] <= $max_size) {
+                    // Check if the file is an image
+                    $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+                    if (in_array(strtolower($file_extension), $allowed_types)) {
+                        if (move_uploaded_file($_FILES['material_image']['tmp_name'], $upload_file)) {
+                            $image_url = 'uploads/materials/images/' . $file_name;
+                        } else {
+                            setFlashMessage('warning', 'Gagal mengunggah gambar. Materi tetap disimpan tanpa gambar.');
+                        }
+                    } else {
+                        setFlashMessage('warning', 'Format gambar tidak didukung. Hanya file JPG, JPEG, PNG, dan GIF yang diperbolehkan.');
+                    }
+                } else {
+                    setFlashMessage('warning', 'Ukuran gambar terlalu besar. Maksimal 2MB.');
+                }
+            } elseif (isset($_POST['existing_image']) && $_POST['existing_image'] !== '' && !isset($_POST['remove_image'])) {
+                // Keep existing image if editing and not removing
+                $image_url = sanitizeInput($_POST['existing_image']);
+            }
+            
+            // Remove existing image if checkbox is checked
+            if (isset($_POST['remove_image']) && isset($_POST['existing_image']) && $_POST['existing_image'] !== '') {
+                $old_image_path = '../../' . $_POST['existing_image'];
+                if (file_exists($old_image_path)) {
+                    @unlink($old_image_path);
+                }
+                $image_url = null;
+            }
+            
             if ($_POST['action'] === 'add') {
-                $query = "INSERT INTO materi_coding (id, judul, deskripsi, tingkat, tanggal_dibuat, kelas_id, dibuat_oleh) 
-                          VALUES ('$id', '$judul', '$deskripsi', '$tingkat', CURDATE(), '$kelas_id', '{$_SESSION['user_id']}')";
+                $query = "INSERT INTO materi_coding (id, judul, deskripsi, image_url, tingkat, tanggal_dibuat, kelas_id, dibuat_oleh) 
+                          VALUES ('$id', '$judul', '$deskripsi', " . ($image_url ? "'$image_url'" : "NULL") . ", '$tingkat', CURDATE(), '$kelas_id', '{$_SESSION['user_id']}')";
                 
                 if (mysqli_query($conn, $query)) {
                     setFlashMessage('success', 'Materi coding berhasil ditambahkan.');
@@ -30,16 +75,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else { // Edit action
                 // Verify the material belongs to this teacher
-                $check_query = "SELECT dibuat_oleh FROM materi_coding WHERE id = '$id'";
+                $check_query = "SELECT dibuat_oleh, image_url FROM materi_coding WHERE id = '$id'";
                 $check_result = mysqli_query($conn, $check_query);
                 
                 if (mysqli_num_rows($check_result) > 0) {
                     $material = mysqli_fetch_assoc($check_result);
                     
                     if ($material['dibuat_oleh'] === $_SESSION['user_id']) {
+                        // If uploading new image and there was an old one, delete it
+                        if ($image_url && !empty($material['image_url']) && $material['image_url'] !== $image_url) {
+                            $old_image_path = '../../' . $material['image_url'];
+                            if (file_exists($old_image_path)) {
+                                @unlink($old_image_path);
+                            }
+                        }
+                        
                         $query = "UPDATE materi_coding SET 
                                   judul = '$judul', 
                                   deskripsi = '$deskripsi',
+                                  image_url = " . ($image_url ? "'$image_url'" : "NULL") . ",
                                   tingkat = '$tingkat', 
                                   kelas_id = '$kelas_id'
                                   WHERE id = '$id'";
@@ -67,13 +121,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = sanitizeInput($_POST['id']);
             
             // Verify the material belongs to this teacher
-            $check_query = "SELECT judul, dibuat_oleh FROM materi_coding WHERE id = '$id'";
+            $check_query = "SELECT judul, dibuat_oleh, image_url FROM materi_coding WHERE id = '$id'";
             $check_result = mysqli_query($conn, $check_query);
             
             if (mysqli_num_rows($check_result) > 0) {
                 $material = mysqli_fetch_assoc($check_result);
                 
                 if ($material['dibuat_oleh'] === $_SESSION['user_id']) {
+                    // Delete associated image if exists
+                    if (!empty($material['image_url'])) {
+                        $image_path = '../../' . $material['image_url'];
+                        if (file_exists($image_path)) {
+                            @unlink($image_path);
+                        }
+                    }
+                    
                     // Delete material
                     $query = "DELETE FROM materi_coding WHERE id = '$id'";
                     
@@ -205,11 +267,14 @@ include_once '../../includes/header.php';
                 <h5 class="modal-title" id="materialModalLabel"><?php echo $edit_material ? 'Edit Materi Coding' : 'Tambah Materi Coding'; ?></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="materials.php">
+            <form method="POST" action="materials.php" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="<?php echo $edit_material ? 'edit' : 'add'; ?>">
                     <?php if ($edit_material): ?>
                         <input type="hidden" name="id" value="<?php echo $edit_material['id']; ?>">
+                        <?php if (!empty($edit_material['image_url'])): ?>
+                            <input type="hidden" name="existing_image" value="<?php echo $edit_material['image_url']; ?>">
+                        <?php endif; ?>
                     <?php endif; ?>
                     
                     <div class="mb-3">
@@ -239,6 +304,24 @@ include_once '../../includes/header.php';
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                    
+                    <!-- Image Upload Field -->
+                    <div class="mb-3">
+                        <label for="material_image" class="form-label">Gambar (Opsional)</label>
+                        <?php if ($edit_material && !empty($edit_material['image_url'])): ?>
+                            <div class="mb-2">
+                                <img src="../../<?php echo $edit_material['image_url']; ?>" class="img-thumbnail" style="max-height: 200px;">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="remove_image" name="remove_image" value="1">
+                                    <label class="form-check-label" for="remove_image">
+                                        Hapus gambar ini
+                                    </label>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        <input type="file" class="form-control" id="material_image" name="material_image" accept="image/*">
+                        <small class="form-text text-muted">Format yang didukung: JPG, JPEG, PNG, GIF. Maksimal 2MB.</small>
                     </div>
                     
                     <div class="mb-3">
