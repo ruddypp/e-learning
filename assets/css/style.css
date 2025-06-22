@@ -1,0 +1,285 @@
+/**
+ * MENTARI E-Learning Custom Styles
+ */
+
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #f39c12;
+    --accent-color: #9b59b6;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+}
+
+body {
+    background-color: #f5f5f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Admin theme colors */
+.admin-theme {
+    --primary-color: #3498db;
+}
+
+/* Teacher theme colors */
+.guru-theme {
+    --primary-color: #2ecc71;
+}
+
+/* Student theme colors */
+.siswa-theme {
+    --primary-color: #f39c12;
+}
+
+/* Principal theme colors */
+.kepsek-theme {
+    --primary-color: #9b59b6;
+}
+
+/* Login page styles */
+.login-container {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.login-header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.login-body {
+    padding: 30px;
+}
+
+/* Dashboard styles */
+.dashboard-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card .icon {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-right: 15px;
+}
+
+.dashboard-card .card-title {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.dashboard-card .card-text {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* Custom card styles */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+/* Custom button styles */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+/* Sidebar styles */
+.sidebar {
+    height: 100%;
+    width: 260px;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    background-color: white;
+    padding-top: 20px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    z-index: 1;
+    transition: all 0.3s;
+}
+
+.sidebar .nav-link {
+    padding: 12px 20px;
+    color: #343a40;
+    border-left: 4px solid transparent;
+    margin-bottom: 5px;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-left: 4px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.sidebar .nav-link i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+}
+
+.content {
+    margin-left: 260px;
+    padding: 20px;
+    transition: all 0.3s;
+}
+
+/* Responsive sidebar */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 70px;
+    }
+    
+    .sidebar .nav-link span {
+        display: none;
+    }
+    
+    .sidebar .nav-link i {
+        margin-right: 0;
+        font-size: 1.2rem;
+    }
+    
+    .content {
+        margin-left: 70px;
+    }
+}
+
+@media (max-width: 576px) {
+    .sidebar {
+        width: 0;
+        padding: 0;
+    }
+    
+    .content {
+        margin-left: 0;
+    }
+    
+    .sidebar-toggle {
+        display: block !important;
+    }
+}
+
+/* Responsive tables */
+.table-responsive {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Profile page */
+.profile-header {
+    background-color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-right: 20px;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Page transitions */
+.page-transition {
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
+}
+
+/* Custom form styles */
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+/* Material card styles */
+.material-card {
+    border: none;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+}
+
+.material-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.material-card .card-img-top {
+    height: 160px;
+    object-fit: cover;
+}
+
+.material-level {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.level-pemula {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.level-menengah {
+    background-color: #f39c12;
+    color: white;
+}
+
+.level-lanjutan {
+    background-color: #2ecc71;
+    color: white;
+} 

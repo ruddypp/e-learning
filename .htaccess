@@ -1,0 +1,72 @@
+Options -Indexes
+RewriteEngine On
+
+# Handle 404 errors
+ErrorDocument 404 /elearning/404.php
+ErrorDocument 403 /elearning/404.php
+ErrorDocument 500 /elearning/error.php
+
+# Remove trailing slash
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)/$ /$1 [L,R=301]
+
+# Redirect to index.php if trying to access protected directories directly
+RewriteRule ^pages/?$ /elearning/index.php [R=301,L]
+
+# Check for role-specific access but allow PHP to handle authentication
+# Disable direct folder access but let PHP scripts handle authentication
+RewriteCond %{REQUEST_URI} ^/elearning/pages/
+RewriteRule .* - [L]
+
+# Increase PHP memory limit and execution time for file uploads
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 21M
+    php_value memory_limit 128M
+    php_value max_execution_time 300
+</IfModule>
+
+# Set security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data:;"
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "(\.htaccess|\.htpasswd|\.git|\.env|\.gitignore|config\.php|database\.php)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Prevent direct access to backup files
+<FilesMatch "\.(sql|gz|zip|tar|bak)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Prevent PHP execution in uploads directory
+<Directory "/elearning/uploads">
+    <FilesMatch "\.php$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# Compression for faster page loads
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Enable browser caching for better performance
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresDefault "access plus 2 days"
+</IfModule> 
