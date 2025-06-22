@@ -1,6 +1,6 @@
-# MENTARI - Manajemen Terpadu Pembelajaran Daring
+# Portaldik
 
-MENTARI (Manajemen Terpadu Pembelajaran Daring) adalah aplikasi e-learning yang dirancang untuk memfasilitasi pembelajaran coding dengan empat jenis pengguna: Admin, Guru, Siswa, dan Kepala Sekolah.
+Portaldik adalah aplikasi e-learning berbasis web yang dirancang untuk memfasilitasi materi, quiz, dan kuisioner sebagai feedback dari perfoma dan soal yang diberikan. Ada empat jenis pengguna: Admin, Guru, Siswa, dan Kepala Sekolah. Aplikasi ini diterapkan pada SDN 05 Bintaro
 
 ## Fitur Utama
 
